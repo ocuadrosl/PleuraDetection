@@ -61,7 +61,7 @@ private:
     std::string OutputPath = DatasetPath;
 
     //background to white paramaters
-    float LThreshold = 90;
+    float LThreshold = 85;
     float AThreshold = 5;
     float BThreshold = 5;
 

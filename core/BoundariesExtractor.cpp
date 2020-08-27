@@ -134,6 +134,97 @@ BoundariesExtractor::GrayImageP BoundariesExtractor::GrayToBinary(GrayImageP gra
 }
 
 
+BoundariesExtractor::GrayImageP BoundariesExtractor::LabelMapToBinaryImage(const LabelMapP& labelMap)
+{
+
+    //Label-map to RGB image
+    using  rgbImageT =  itk::Image<itk::RGBPixel<unsigned char>, 2>;
+    typedef itk::LabelMapToRGBImageFilter<LabelMapT, rgbImageT> RGBFilterType;
+    typename RGBFilterType::Pointer labelMapToRGBFilter = RGBFilterType::New();
+    labelMapToRGBFilter->SetInput(labelMap);
+    labelMapToRGBFilter->Update();
+
+
+    using rgbToGrayFilterT = itk::RGBToLuminanceImageFilter<rgbImageT, GrayImageT>;
+    typename rgbToGrayFilterT::Pointer rgbToGrayFilter = rgbToGrayFilterT::New();
+    rgbToGrayFilter->SetInput(labelMapToRGBFilter->GetOutput());
+    rgbToGrayFilter->Update();
+
+
+    using FilterType = itk::BinaryThresholdImageFilter<GrayImageT, GrayImageT>;
+    typename FilterType::Pointer filter = FilterType::New();
+    filter->SetInput(rgbToGrayFilter->GetOutput());
+    filter->SetLowerThreshold(0);
+    filter->SetUpperThreshold(1); //all values greater than black->0
+    filter->SetOutsideValue(Foreground);
+    filter->SetInsideValue(Background);
+    filter->Update();
+
+    return filter->GetOutput();
+
+
+
+}
+
+
+BoundariesExtractor::GrayImageP BoundariesExtractor::DeleteSmallComponents(GrayImageP edgesImage)
+{
+
+    using ConnectedComponentImageFilterType = itk::ConnectedComponentImageFilter<GrayImageT, GrayImageT>;
+    ConnectedComponentImageFilterType::Pointer connected = ConnectedComponentImageFilterType::New();
+    connected->SetInput(edgesImage);
+    connected->FullyConnectedOn();
+    connected->SetBackgroundValue(Background); //black
+    connected->Update();
+
+    using LabelImageToLabelMapFilterType =  itk::LabelImageToShapeLabelMapFilter<GrayImageT, LabelMapT>;
+    typename LabelImageToLabelMapFilterType::Pointer labelImageToLabelMapFilter = LabelImageToLabelMapFilterType::New();
+    labelImageToLabelMapFilter->SetInput(connected->GetOutput());
+    labelImageToLabelMapFilter->Update();
+    auto labelMap = labelImageToLabelMapFilter->GetOutput();
+
+    if(ComponentsThreshold > 0)
+    {
+        std::vector<ShapeLabelObjectType::Pointer> labelsToRemove;
+        for(unsigned i=1; i < labelMap->GetNumberOfLabelObjects(); ++i) //it starts in 1 because 0 is the background label
+        {
+
+
+
+            if(labelMap->GetLabelObject(i)->Size() <  ComponentsThreshold)
+            {
+                labelsToRemove.push_back(labelMap->GetLabelObject(i));
+                //labelsToRemove.push_back(i);
+            }
+
+        }
+
+        for(auto i : labelsToRemove)
+        {
+            //labelMap->RemoveLabel(i);
+            labelMap->RemoveLabelObject(i);
+        }
+    }
+
+
+
+    return  LabelMapToBinaryImage(labelMap);
+
+
+
+
+}
+
+void BoundariesExtractor::SetThinBoundariesOn()
+{
+    ThinBoundaries = true;
+}
+
+void BoundariesExtractor::SetThinBoundariesOff()
+{
+    ThinBoundaries = false;
+}
+
 void BoundariesExtractor::Process(bool returnResults)
 {
 
@@ -151,23 +242,36 @@ void BoundariesExtractor::Process(bool returnResults)
     auto imagePathIt = imagePaths.begin();
     auto imageNameIt = imageNames.begin();
     GrayImageP boundaries;
+    GrayImageP boundariesFiltered;
     GrayImageP binaryImage;
+    GrayImageP thinBoundaries;
     for(; imagePathIt != imagePaths.end(); ++imagePathIt, ++imageNameIt)
     {
 
         io::printWait("Boundary Extraction image "+*imageNameIt);
         binaryImage = GrayToBinary(io::ReadImage<GrayImageT>(*imagePathIt));
         boundaries = ExtractBoundaries(binaryImage);
+        boundariesFiltered = DeleteSmallComponents(boundaries);
 
         if(ThinBoundaries)
         {
-            OutputImages.push_back(ThinningBoundaries(boundaries));
+            thinBoundaries = ThinningBoundaries(boundariesFiltered);
+            io::WriteImage<GrayImageT>(thinBoundaries, OutputPath+"/"+*imageNameIt+"_thin_boundaries.tiff");
+            if(returnResults)
+            {
+                OutputImages.push_back(thinBoundaries);
+            }
         }
         else
         {
-            OutputImages.push_back(boundaries);
+            io::WriteImage<GrayImageT>(thinBoundaries, OutputPath+"/"+*imageNameIt+"_boundaries.tiff");
+            if(returnResults)
+            {
+                OutputImages.push_back(boundariesFiltered);
+            }
         }
-        //To-Do save results..... delete small components.....
+
+
     }
 
 
