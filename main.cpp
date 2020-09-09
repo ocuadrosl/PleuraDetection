@@ -16,9 +16,9 @@ int main()
     preProcessor->SetOutputPath("/home/oscar/data/biopsy/tiff/test/clean_images/");
     preProcessor->Process(true);
     auto processedImages = preProcessor->GetOutputs();
-*/
 
-/*    auto boundaryExtractor  = std::make_unique<BoundariesExtractor>();
+
+    auto boundaryExtractor  = std::make_unique<BoundariesExtractor>();
     boundaryExtractor->SetDatasetPath("/home/oscar/data/biopsy/tiff/test/clean_images/");
     boundaryExtractor->SetOutputPath("/home/oscar/data/biopsy/tiff/test/boundaries/");
     boundaryExtractor->SetThinBoundariesOn();
@@ -27,7 +27,11 @@ int main()
 
 
     auto featureExtractor = std::make_unique<FeatureExtractor>();
-    featureExtractor->SetDatasetPath("/home/oscar/data/biopsy/tiff/test/boundaries/");
+    featureExtractor->SetBoundariesPath("/home/oscar/data/biopsy/tiff/test/boundaries/");
+    featureExtractor->SetImagesPath("/home/oscar/data/biopsy/tiff/test/clean_images/");
+    featureExtractor->SetLabelsPath("/home/oscar/data/biopsy/tiff/test/labels/");
+    featureExtractor->ProcessForTrainning();
+
 
 
 

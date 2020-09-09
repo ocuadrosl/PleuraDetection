@@ -256,7 +256,8 @@ void BoundariesExtractor::Process(bool returnResults)
         if(ThinBoundaries)
         {
             thinBoundaries = ThinningBoundaries(boundariesFiltered);
-            io::WriteImage<GrayImageT>(thinBoundaries, OutputPath+"/"+*imageNameIt+"_thin_boundaries.tiff");
+            //io::WriteImage<GrayImageT>(thinBoundaries, OutputPath+"/"+*imageNameIt+"_thin_boundaries.tiff");
+            io::WriteImage<GrayImageT>(thinBoundaries, OutputPath+"/"+*imageNameIt+".tiff");
             if(returnResults)
             {
                 OutputImages.push_back(thinBoundaries);
@@ -264,7 +265,8 @@ void BoundariesExtractor::Process(bool returnResults)
         }
         else
         {
-            io::WriteImage<GrayImageT>(thinBoundaries, OutputPath+"/"+*imageNameIt+"_boundaries.tiff");
+            //io::WriteImage<GrayImageT>(thinBoundaries, OutputPath+"/"+*imageNameIt+"_boundaries.tiff");
+            io::WriteImage<GrayImageT>(thinBoundaries, OutputPath+"/"+*imageNameIt+".tiff");
             if(returnResults)
             {
                 OutputImages.push_back(boundariesFiltered);
