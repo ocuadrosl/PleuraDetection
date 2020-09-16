@@ -5,15 +5,15 @@ BoundariesExtractor::BoundariesExtractor()
 
 }
 
-void BoundariesExtractor::SetDatasetPath(const std::string& dataSetPath)
+void BoundariesExtractor::SetInputDatasetPath(const std::string& dataSetPath)
 {
-    DatasetPath = (*dataSetPath.rbegin() == '/') ? dataSetPath.substr(0, dataSetPath.length()-1) : dataSetPath;
+    InputDatasetPath = (*dataSetPath.rbegin() == '/') ? dataSetPath.substr(0, dataSetPath.length()-1) : dataSetPath;
 }
 
-void BoundariesExtractor::SetOutputPath(const std::string& outputPath)
+void BoundariesExtractor::SetOutputDatasetPath(const std::string& outputPath)
 {
     //delete '/' at the end of the path
-    OutputPath = ( (*outputPath.rbegin()) == '/') ? outputPath.substr(0, outputPath.length()-1) : outputPath;
+    OutputDatasetPath = ( (*outputPath.rbegin()) == '/') ? outputPath.substr(0, outputPath.length()-1) : outputPath;
 }
 
 
@@ -228,11 +228,17 @@ void BoundariesExtractor::SetThinBoundariesOff()
 void BoundariesExtractor::Process(bool returnResults)
 {
 
+    if(InputDatasetPath==OutputDatasetPath)
+    {
+        std::cerr<<"Input Dataset path and Output Dataset Path MUST be different"<<std::endl;
+        return;
+    }
+
     //get all files in dataset path
     std::vector<std::string> imagePaths;
     std::vector<std::string> imageNames;
     // std::string imageName;
-    for(auto filePath: std::filesystem::directory_iterator(DatasetPath))
+    for(auto filePath: std::filesystem::directory_iterator(InputDatasetPath))
     {
         imagePaths.push_back(filePath.path());
         imageNames.push_back( *io::Split( *io::Split(filePath.path(), '/').rbegin(), '.').begin() );
@@ -257,7 +263,7 @@ void BoundariesExtractor::Process(bool returnResults)
         {
             thinBoundaries = ThinningBoundaries(boundariesFiltered);
             //io::WriteImage<GrayImageT>(thinBoundaries, OutputPath+"/"+*imageNameIt+"_thin_boundaries.tiff");
-            io::WriteImage<GrayImageT>(thinBoundaries, OutputPath+"/"+*imageNameIt+".tiff");
+            io::WriteImage<GrayImageT>(thinBoundaries, OutputDatasetPath+"/"+*imageNameIt+".tiff");
             if(returnResults)
             {
                 OutputImages.push_back(thinBoundaries);
@@ -266,7 +272,7 @@ void BoundariesExtractor::Process(bool returnResults)
         else
         {
             //io::WriteImage<GrayImageT>(thinBoundaries, OutputPath+"/"+*imageNameIt+"_boundaries.tiff");
-            io::WriteImage<GrayImageT>(thinBoundaries, OutputPath+"/"+*imageNameIt+".tiff");
+            io::WriteImage<GrayImageT>(thinBoundaries, OutputDatasetPath+"/"+*imageNameIt+".tiff");
             if(returnResults)
             {
                 OutputImages.push_back(boundariesFiltered);

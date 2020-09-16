@@ -6,9 +6,9 @@ PreProcessor::PreProcessor()
 }
 
 
-void PreProcessor::SetDatasetPath(const std::string& dataSetPath)
+void PreProcessor::SetInputDatasetPath(const std::string& dataSetPath)
 {
-    DatasetPath = (*dataSetPath.rbegin() == '/') ? dataSetPath.substr(0, dataSetPath.length()-1) : dataSetPath;
+    InputDatasetPath = (*dataSetPath.rbegin() == '/') ? dataSetPath.substr(0, dataSetPath.length()-1) : dataSetPath;
 }
 
 PreProcessor::GrayImageP PreProcessor::HistogramEqualization(GrayImageP grayImage, bool show)
@@ -152,10 +152,10 @@ std::vector<PreProcessor::GrayImageP> PreProcessor::GetOutputs()
     return OutputImages;
 }
 
-void PreProcessor::SetOutputPath(const std::string& outputPath)
+void PreProcessor::SetOutputDatasetPath(const std::string& outputPath)
 {
     //delete '/' at the end of the path
-    OutputPath = ( (*outputPath.rbegin()) == '/') ? outputPath.substr(0, outputPath.length()-1) : outputPath;
+    OutputDatasetPath = ( (*outputPath.rbegin()) == '/') ? outputPath.substr(0, outputPath.length()-1) : outputPath;
 }
 
 void PreProcessor::SetExtractForegroundArgs(float lThreshold, float aThreshold, float bThreshold)
@@ -174,6 +174,12 @@ void PreProcessor::SetHistogramEqualizationArgs(float alpha, float beta, unsigne
 void PreProcessor::Process(bool returnResults)
 {
 
+    if(InputDatasetPath==OutputDatasetPath)
+    {
+        std::cerr<<"Input Dataset path and Output Dataset Path MUST be different"<<std::endl;
+        return;
+    }
+
     //usings
     using rgbToGrayFilterType = itk::RGBToLuminanceImageFilter<RGBImageT, GrayImageT>;
     using RescaleType = itk::RescaleIntensityImageFilter<GrayImageT, GrayImageT>;
@@ -182,7 +188,7 @@ void PreProcessor::Process(bool returnResults)
     std::vector<std::string> imagePaths;
     std::vector<std::string> imageNames;
    // std::string imageName;
-    for(auto filePath: std::filesystem::directory_iterator(DatasetPath))
+    for(auto filePath: std::filesystem::directory_iterator(InputDatasetPath))
     {
         imagePaths.push_back(filePath.path());
         imageNames.push_back(*io::Split( *io::Split(filePath.path(), '/').rbegin(), '.').begin() );
@@ -222,7 +228,7 @@ void PreProcessor::Process(bool returnResults)
             OutputImages.push_back(equalizeImage);
         }
 
-        io::WriteImage<GrayImageT>(equalizeImage, OutputPath+"/"+*imageNameIt+"_pre_processed.tiff");
+        io::WriteImage<GrayImageT>(equalizeImage, OutputDatasetPath+"/"+*imageNameIt+".tiff");
 
     }
 

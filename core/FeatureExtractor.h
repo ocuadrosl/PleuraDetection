@@ -5,6 +5,8 @@
 #include <filesystem>
 #include <string>
 #include <vector>
+#include <algorithm>
+#include <cinttypes>
 
 
 //local includes
@@ -40,8 +42,8 @@ private:
     using FeaturesVectorT = std::vector<FeaturesT>;
     using CentersT  = std::vector<GrayImageT::IndexType>;
 
-    const unsigned Pleura    = 1;
-    const unsigned NonPleura = 2;
+    const double Pleura    =  1;
+    const double NonPleura = -1;
 
 
 
@@ -51,9 +53,11 @@ public:
     void SetBoundariesPath(const std::string& boundariesPath);
     void SetImagesPath(const std::string& imagesPath);
     void SetLabelsPath(const std::string& labelsPath);
+    void SetKernelSize(const std::size_t& kernelSize);
     FeatureExtractor();
 
     void ProcessForTrainning();
+    void WriteFeaturesCSV(const std::string& fileName, bool writeHeader=false) const;
 
 private:
 
@@ -61,17 +65,19 @@ private:
     std::string BoundariesPath = ".";
     std::string ImagesPath = "."; //Original Images
     std::string LabelsPath = ".";
-    unsigned KernelSize = 51;
+    std::size_t KernelSize = 51;
 
     CentersT   CentersVector;
     FeaturesVectorT  FeaturesVector;
     std::vector<double> LabelsVector;
+    std::vector<std::string> ImagesNames;
+    std::vector<std::uint16_t> CentersNumberPerImage;
 
     void FindCenters(GrayImageP boundaries, CentersT& centers);
     void ComputeCooccurrenceMatrixFeatures(GrayImageP grayImage, const CentersT& centers, FeaturesVectorT& featuresVector);
     void FindLabels(const RGBImageP& labelsImage, const CentersT& centersVector, std::vector<double>& labelsVector);
 
-    void WriteFeaturesCSV(const std::string& fileName, bool writeHeader=false) const;
+
 
 };
 

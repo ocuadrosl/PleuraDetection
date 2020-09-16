@@ -45,8 +45,8 @@ private:
 public:
     BoundariesExtractor();
 
-    void SetDatasetPath(const std::string& dataSetPath);
-    void SetOutputPath (const std::string& outputPath);
+    void SetInputDatasetPath (const std::string& dataSetPath);
+    void SetOutputDatasetPath(const std::string& outputPath);
 
     void SetThinBoundariesOn();
     void SetThinBoundariesOff();
@@ -63,8 +63,8 @@ public:
 
 private:
     //attributes
-    std::string DatasetPath = ".";
-    std::string OutputPath  = DatasetPath;
+    std::string InputDatasetPath  = ".";
+    std::string OutputDatasetPath = "";
 
     bool ThinBoundaries = false;
 

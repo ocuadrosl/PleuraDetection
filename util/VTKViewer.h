@@ -25,8 +25,6 @@
 
 
 
-
-
 //vtk includes
 #include <vtkPlot.h>
 #include <vtkVersion.h>
@@ -53,60 +51,6 @@ VTK_MODULE_INIT(vtkInteractionStyle)
 
 namespace VTKViewer
 {
-
-
-
-
-
-
-template <typename vectorT>
-void PlotBar(const vectorT& data, unsigned size)
-{
-
-
-    vtkSmartPointer<vtkContextView> view = vtkSmartPointer<vtkContextView>::New();
-
-    view->GetRenderer()->SetBackground(1.0, 1.0, 1.0);
-    view->GetRenderWindow()->SetSize(400, 300);
-    vtkSmartPointer<vtkChartXY> chart = vtkSmartPointer<vtkChartXY>::New();
-    view->GetScene()->AddItem(chart);
-
-    vtkSmartPointer<vtkTable> table = vtkSmartPointer<vtkTable>::New();
-
-
-    vtkSmartPointer<vtkIntArray>  arrMonth = vtkSmartPointer<vtkIntArray>::New();
-    arrMonth->SetName("Month");
-    table->AddColumn(arrMonth);
-
-    vtkSmartPointer<vtkIntArray>  arr2008 = vtkSmartPointer<vtkIntArray>::New();
-    arr2008->SetName("2008");
-    table->AddColumn(arr2008);
-    table->SetNumberOfRows(size);
-
-    for (int i = 0; i < size; i++)
-    {
-        table->SetValue(i,0,i+1);
-
-        //std::cout<<data[i]<<std::endl;
-        table->SetValue(i,1,data[i]);
-
-    }
-    vtkPlot *line = chart->AddPlot(vtkChart::BAR);
-
-    line = chart->AddPlot(vtkChart::BAR);
-    line->SetInputData(table, 0, 1);
-    line->SetColor(0, 255, 0, 255);
-
-
-    //Finally render the scene and compare the image to a reference image
-    view->GetRenderWindow()->SetMultiSamples(0);
-    view->GetInteractor()->Initialize();
-    view->GetInteractor()->Start();
-
-
-}
-
-
 
 
 

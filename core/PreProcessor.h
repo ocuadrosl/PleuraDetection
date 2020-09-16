@@ -35,16 +35,16 @@ private:
     using GrayImageT = itk::Image<unsigned, 2>;
     using GrayImageP = GrayImageT::Pointer;
 
-    const unsigned Background = 0;
-    const unsigned Foreground = 255;
+    const unsigned Background{0};
+    const unsigned Foreground{255};
 
 
 public:
 
     PreProcessor();
 
-    void SetDatasetPath(const std::string& dataSetPath);
-    void SetOutputPath(const std::string& outputPath);
+    void SetInputDatasetPath(const std::string& dataSetPath);
+    void SetOutputDatasetPath(const std::string& outputPath);
 
     void SetExtractForegroundArgs(float lThreshold, float aThreshold, float bThreshold);
     void SetHistogramEqualizationArgs(float alpha, float beta, unsigned radius);
@@ -57,8 +57,8 @@ public:
 private:
 
     //attributes
-    std::string DatasetPath = ".";
-    std::string OutputPath = DatasetPath;
+    std::string InputDatasetPath{"."};
+    std::string OutputDatasetPath{""};
 
     //background to white paramaters
     float LThreshold = 85;
@@ -66,14 +66,12 @@ private:
     float BThreshold = 5;
 
     //Histogram equalization parameters
-    float    Alpha  = 1.f;
-    float    Beta   = 1.f;
-    unsigned Radius = 5;
+    float    Alpha{1.f};
+    float    Beta{1.f};
+    unsigned Radius{5};
 
 
     std::vector<GrayImageP> OutputImages;
-
-
 
     //private methods
     RGBImageP  ExtractForeground(const RGBImageP& inputImage, bool show=false);

@@ -11,7 +11,8 @@ find_package(ITK REQUIRED)
 find_package(dlib REQUIRED)
 
 include(${ITK_USE_FILE})
-include(${VTK_USE_FILE})
+#include(${VTK_USE_FILE}) deprecated, is no longer used starting with 8.90.
+
 
 file(GLOB core
     "core/*.h"
@@ -36,3 +37,7 @@ target_link_libraries(${PROJECT_NAME} ${VTK_LIBRARIES})
 target_link_libraries(${PROJECT_NAME} ${ITK_LIBRARIES})
 target_link_libraries(${PROJECT_NAME} dlib::dlib)
 
+vtk_module_autoinit(
+    TARGETS PleuraDetection
+    MODULES ${VTK_LIBRARIES}
+)
