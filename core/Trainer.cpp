@@ -15,15 +15,19 @@ void Trainer::ReadFeaturesCSV(const std::string& fileName,
 
     unsigned featuresSize = featuresEndIndex - featuresBeginIndex+1;
     //std::cout<<featuresSize<<std::endl;
-    FeaturesT features(featuresSize,1);
+    SampleT features(featuresSize,1);
     std::string line;
     std::string value;
     std::istringstream isLine;
 
     if (file.is_open())
     {
+        std::getline(file, line, '\n'); //header
+        //std::cout<<line<<std::endl;
+
         while (std::getline(file, line, '\n'))
         {
+
             isLine = std::istringstream(line);
 
             for (unsigned lIndex=1; std::getline(isLine, value, ','); ++lIndex)
@@ -43,8 +47,8 @@ void Trainer::ReadFeaturesCSV(const std::string& fileName,
                         features(fIndex) = std::stod(value);
                         ++lIndex;
                     }
-                    FeaturesVector.push_back(features);
-                    //std::cout<<*FeaturesVector.rbegin()<<std::endl;
+                    Samples.push_back(features);
+                    //std::cout<<*Samples.rbegin()<<std::endl;
 
                 }
                 else
@@ -62,20 +66,52 @@ void Trainer::ReadFeaturesCSV(const std::string& fileName,
 
 
 
+void Trainer::ProcessSVM()
+{
+
+    dlib::vector_normalizer<SampleT> normalizer;
+    normalizer.train(Samples);
+
+    for(auto & sample : Samples)
+    {
+        sample = normalizer(sample);
+    }
+
+    using kernelT = dlib::linear_kernel<SampleT>;
+
+    dlib::svm_c_linear_trainer<kernelT> linearTrainer;
+
+
+
+    for (double C = 1; C < 10000; C *= 5)
+    {
+        linearTrainer.set_c(C);
+        std::cout << "cross validation accuracy: "<<C<<" -> " << cross_validate_trainer(linearTrainer, Samples, Labels, 10);
+
+    }
+
+    //dlib::decision_function<KernelT> df = linearTrainer.train(Samples, Labels);
+
+    io::printOK("Linear SVM");
+
+}
+
 void Trainer::ProcessSVMRadial()
 {
 
-    dlib::vector_normalizer<FeaturesT> normalizer;
-    normalizer.train(FeaturesVector);
+    dlib::vector_normalizer<SampleT> normalizer;
+    normalizer.train(Samples);
 
-    for (auto & features : FeaturesVector)
+    for (auto & features : Samples)
     {
         features = normalizer(features);
     }
 
     dlib::svm_c_trainer<KernelT> trainer;
 
-    double  maxClassificationAccuracy = 0;
+
+
+    //double  maxClassificationAccuracy = 0;
     for (double gamma = 0.00001; gamma <= 1; gamma *= 5)
     {
         for (double C = 1; C < 100000; C *= 5)
@@ -85,7 +121,7 @@ void Trainer::ProcessSVMRadial()
             trainer.set_kernel(KernelT(gamma));
             trainer.set_c(C);
             std::cout << "gamma: " << gamma << "    C: " << C;
-            std::cout << " cross validation accuracy: " << cross_validate_trainer(trainer, FeaturesVector, Labels, 3);
+            std::cout << " cross validation accuracy: " << cross_validate_trainer(trainer, Samples, Labels, 10);
 
 
         }
@@ -97,10 +133,10 @@ void Trainer::ProcessSVMRadial()
 void Trainer::ProcessKrr()
 {
 
-    dlib::vector_normalizer<FeaturesT> normalizer;
-    normalizer.train(FeaturesVector);
+    dlib::vector_normalizer<SampleT> normalizer;
+    normalizer.train(Samples);
 
-    for (auto & features : FeaturesVector)
+    for (auto & features : Samples)
     {
         features = normalizer(features);
     }
@@ -119,7 +155,7 @@ void Trainer::ProcessKrr()
         // loo_values will contain the LOO predictions for each sample.  In the case
         // of perfect prediction it will end up being a copy of labels.
         std::vector<double> looValues;
-        trainer.train(FeaturesVector, Labels, looValues);
+        trainer.train(Samples, Labels, looValues);
 
         // Print gamma and the fraction of samples correctly classified during LOO cross-validation.
         const double classificationAccuracy = dlib::mean_sign_agreement(Labels, looValues);
@@ -133,7 +169,7 @@ void Trainer::ProcessKrr()
     trainer.set_kernel(KernelT(maxClassificationAccuracy));
 
     LearnedFunction.normalizer = normalizer;  // save normalization information
-    LearnedFunction.function = trainer.train(FeaturesVector, Labels); // perform the actual training and save the results
+    LearnedFunction.function = trainer.train(Samples, Labels); // perform the actual training and save the results
 
 
     // print out the number of basis vectors in the resulting decision function

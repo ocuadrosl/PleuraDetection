@@ -12,9 +12,9 @@
 class Trainer
 {
 
-    using FeaturesT  = dlib::matrix<double>;
-    using FeaturesVectorT = std::vector<FeaturesT>;
-    using KernelT = dlib::radial_basis_kernel<FeaturesT>;
+    using SampleT  = dlib::matrix<double>;
+    using SamplesT = std::vector<SampleT>;
+    using KernelT = dlib::radial_basis_kernel<SampleT>;
     using DecisionFunctionT = dlib::decision_function<KernelT>;
     using FunctionT = dlib::normalized_function<DecisionFunctionT>;
 
@@ -28,11 +28,13 @@ public:
                          unsigned labelColumn);
     void ProcessKrr();
     void ProcessSVMRadial();
+    void ProcessSVM();
     void WriteLearnedFunction(const std::string& fileName);
+
 
 private:
 
-     FeaturesVectorT  FeaturesVector;
+     SamplesT  Samples;
      FunctionT LearnedFunction;
      std::vector<double> Labels;
 
