@@ -12,12 +12,15 @@
 #include <itkLabelMapToRGBImageFilter.h>
 #include <itkRGBToLuminanceImageFilter.h>
 #include <itkBinaryThresholdImageFilter.h>
+#include <itkSmoothingRecursiveGaussianImageFilter.h>
+
 
 //SLT includes
 #include <iostream>
 #include <filesystem>
 #include <string>
 #include <vector>
+#include <cinttypes>
 
 
 //local includes
@@ -32,8 +35,8 @@ private:
     using GrayImageT = itk::Image<unsigned, 2>;
     using GrayImageP = GrayImageT::Pointer;
 
-    const unsigned Background = 0;
-    const unsigned Foreground = 255;
+    const std::uint8_t Background{0};
+    const std::uint8_t Foreground{255};
 
     //shape label map
     using LabelType = unsigned;
@@ -51,6 +54,8 @@ public:
     void SetThinBoundariesOn();
     void SetThinBoundariesOff();
 
+    void SetGaussSigma(float sigma);
+
     void Process(bool returnResults=false);
 
     GrayImageP ExtractBoundaries(GrayImageP binaryImage);
@@ -59,16 +64,19 @@ public:
 
     void ConnectBackground(GrayImageP& grayImage);
 
+    void SetSmallComponentsThreshold(std::uint16_t threshold);
 
 
 private:
     //attributes
-    std::string InputDatasetPath  = ".";
-    std::string OutputDatasetPath = "";
+    std::string InputDatasetPath{"."};
+    std::string OutputDatasetPath{};
 
-    bool ThinBoundaries = false;
+    bool ThinBoundaries{false};
 
-    unsigned ComponentsThreshold = 50;
+    float  GaussSigma{1};
+
+    std::uint16_t ComponentsThreshold{300};
 
     std::vector<GrayImageP> OutputImages;
 
@@ -76,6 +84,7 @@ private:
     GrayImageP DeleteSmallComponents(GrayImageP edgesImage);
 
     GrayImageP LabelMapToBinaryImage(const LabelMapP& labelMap);
+    GrayImageP GaussianBlur(const GrayImageP& inputImage, bool show=false);
 
 };
 

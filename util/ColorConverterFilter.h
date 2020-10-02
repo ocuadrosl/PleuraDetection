@@ -8,7 +8,7 @@
 #include <itkNumericTraitsArrayPixel.h>
 
 #include <cmath>
-
+#include<cinttypes>
 //local includes
 #include "../util/Math.h"
 #include "../util/CustomPrint.h"
@@ -87,6 +87,7 @@ private:
 using imageDouble   = itk::Image<itk::RGBPixel<double  >, 2>;
 using imageUnsigned = itk::Image<itk::RGBPixel<unsigned>, 2>;
 using imageFloat    = itk::Image<itk::RGBPixel<float   >, 2>;
+using imageUint_8    = itk::Image<itk::RGBPixel<uint8_t >, 2>;
 
 template  class ColorConverterFilter<imageDouble  , imageDouble>;
 template  class ColorConverterFilter<imageUnsigned, imageDouble>;
@@ -94,5 +95,8 @@ template  class ColorConverterFilter<imageDouble  , imageUnsigned>;
 template  class ColorConverterFilter<imageUnsigned, imageFloat >;
 template  class ColorConverterFilter<imageFloat, imageFloat >;
 template  class ColorConverterFilter<imageFloat, imageUnsigned>;
+
+template  class ColorConverterFilter<imageUint_8, imageFloat>;
+template  class ColorConverterFilter<imageFloat, imageUint_8>;
 
 #endif // COLORCONVERTERFILTER_H

@@ -38,7 +38,7 @@ inline void printInfo(std::string subject, std::string message)
 }
 
 
-inline void printOK(std::string message, short size = 40)
+inline void printOK(std::string message, short size = 50)
 {
 
     short diff = size - static_cast<short>(message.size());

@@ -54,6 +54,27 @@ PreProcessor::GrayImageP PreProcessor::HistogramEqualization(GrayImageP grayImag
 
 }
 
+
+void PreProcessor::SetLThreshold(float lThreshold)
+{
+    LThreshold = lThreshold;
+}
+
+void PreProcessor::SetBThreshold(float bThreshold)
+{
+
+    BThreshold = bThreshold;
+}
+
+void PreProcessor::SetAThreshold(float aThreshold)
+{
+    AThreshold = aThreshold;
+}
+
+
+
+
+
 /*
 All background pixels are set to white
 
@@ -87,6 +108,7 @@ PreProcessor::RGBImageP PreProcessor::ExtractForeground(const RGBImageP& inputIm
 
     auto labImage = xyzToLabFilter->getOutput();
 
+    /*
     //computing max luminance value
     //Extracting L channel
     using ExtractChannelFilterT = ExtractChannelFilter<labImageT, FloatImageT>;
@@ -98,6 +120,8 @@ PreProcessor::RGBImageP PreProcessor::ExtractForeground(const RGBImageP& inputIm
     auto lChannel = extractChannelFilter->getOutputImage();
     using ImageCalculatorFilterType = itk::MinimumMaximumImageCalculator<FloatImageT>;
 
+
+    //Min max interpolation
     typename ImageCalculatorFilterType::Pointer imageCalculatorFilter = ImageCalculatorFilterType::New();
     imageCalculatorFilter->SetImage(lChannel);
     imageCalculatorFilter->Compute();
@@ -105,12 +129,12 @@ PreProcessor::RGBImageP PreProcessor::ExtractForeground(const RGBImageP& inputIm
     float minLuminance = imageCalculatorFilter->GetMinimum();
 
 
-    //Min max interpolation lambda
-    auto minMax = [minLuminance, maxLuminance](float value)
+
+    const auto& minMax = [minLuminance, maxLuminance](float value)
     {
         return  ( 100.f * ( value - minLuminance) ) / (maxLuminance - minLuminance) ;
     };
-
+*/
 
     itk::ImageRegionConstIterator<RGBImageT> inputIt(inputImage, inputImage->GetRequestedRegion());
     itk::ImageRegionIterator<RGBImageT> outputIt(outputImage, outputImage->GetRequestedRegion());
@@ -124,14 +148,31 @@ PreProcessor::RGBImageP PreProcessor::ExtractForeground(const RGBImageP& inputIm
 
         auto labPixel = labIt.Get();
 
-        if(minMax(labPixel[0]) > LThreshold  &&  labPixel[1] < AThreshold &&  labPixel[2] < BThreshold)
+        //if(minMax(labPixel[0]) > LThreshold  &&  labPixel[1] < AThreshold &&  labPixel[2] > BThreshold)
+
+        if(labPixel[2] < BThreshold) //B
         {
-            outputIt.Set(white);
+            if(labPixel[1] > AThreshold )//A
+            {
+                if(labPixel[0] < LThreshold)
+                {
+                    outputIt.Set(inputIt.Get());
+                }
+                else
+                {
+                    outputIt.Set(white);
+                }
+            }
+
+            else
+            {
+                outputIt.Set(white);
+            }
 
         }
         else
         {
-            outputIt.Set(inputIt.Get());
+            outputIt.Set(white);
         }
 
     }
@@ -187,17 +228,15 @@ void PreProcessor::Process(bool returnResults)
     //get all files in dataset path
     std::vector<std::string> imagePaths;
     std::vector<std::string> imageNames;
-   // std::string imageName;
+    // std::string imageName;
     for(auto filePath: std::filesystem::directory_iterator(InputDatasetPath))
     {
         imagePaths.push_back(filePath.path());
         imageNames.push_back(*io::Split( *io::Split(filePath.path(), '/').rbegin(), '.').begin() );
-     //   std::cout<<(*imageNames.rbegin())<<std::endl;
-
-
     }
 
     RGBImageP image;
+    RGBImageP blurImage;
     RGBImageP cleanImage;
     GrayImageP equalizeImage;
     auto imagePathIt = imagePaths.begin();
@@ -205,6 +244,7 @@ void PreProcessor::Process(bool returnResults)
     for(; imagePathIt != imagePaths.end(); ++imagePathIt, ++imageNameIt)
     {
         io::printWait("Pre Processing image "+*imageNameIt);
+
         image = io::ReadImage<RGBImageT>(*imagePathIt);
         cleanImage = ExtractForeground(image, false);
 
@@ -214,7 +254,7 @@ void PreProcessor::Process(bool returnResults)
         rgbToGrayFilter->SetInput(cleanImage);
         rgbToGrayFilter->Update();
 
-       //To-Do rele
+        //To-Do rele
         /* auto rescaler = RescaleType::New();
         rescaler->SetInput(rgbToGrayFilter->GetOutput());
         rescaler->SetOutputMinimum(Background);

@@ -45,18 +45,18 @@ BoundariesExtractor::GrayImageP BoundariesExtractor::ExtractBoundaries(GrayImage
     ConnectBackground(binaryImage);
 
 
-    //Detecting background
+    //Detecting background, thi goal is to set internal pixel to 0
     using ConnectedFilterType = itk::ConnectedThresholdImageFilter<GrayImageT, GrayImageT>;
     ConnectedFilterType::Pointer connectedThreshold = ConnectedFilterType::New();
     connectedThreshold->SetInput(binaryImage);
     connectedThreshold->SetLower(Background);
     connectedThreshold->SetUpper(Background);
-    connectedThreshold->SetSeed({0,0}); //TODO define it
+    connectedThreshold->SetSeed({0,0});
     connectedThreshold->SetReplaceValue(Foreground);
 
     connectedThreshold->Update();
 
-
+    //VTKViewer::visualize<GrayImageT>(connectedThreshold->GetOutput());
 
     using binaryContourImageFilterType = itk::BinaryContourImageFilter<GrayImageT, GrayImageT>;
     binaryContourImageFilterType::Pointer binaryContourFilter = binaryContourImageFilterType::New();
@@ -67,6 +67,7 @@ BoundariesExtractor::GrayImageP BoundariesExtractor::ExtractBoundaries(GrayImage
     binaryContourFilter->Update();
 
     io::printOK("Extract boundaries");
+
 
     return binaryContourFilter->GetOutput();
 
@@ -112,17 +113,14 @@ BoundariesExtractor::GrayImageP BoundariesExtractor::GrayToBinary(GrayImageP gra
 
     for(; !gIt.IsAtEnd(); ++gIt, ++bIt)
     {
-
-
         //std::cout<<gIt.Get()<<std::endl;
-        bIt.Set( (gIt.Get() == Foreground )? Background : Foreground );
+        //bIt.Set( (gIt.Get() == Foreground )? Background : Foreground );
 
+        bIt.Set( (gIt.Get() >= Foreground - 1 )? Background: Foreground);
     }
-
 
     if(show)
     {
-
         VTKViewer::visualize<GrayImageT>(binaryImage, "Gray to Binary");
     }
 
@@ -133,6 +131,11 @@ BoundariesExtractor::GrayImageP BoundariesExtractor::GrayToBinary(GrayImageP gra
 
 }
 
+
+void BoundariesExtractor::SetGaussSigma(float sigma)
+{
+    GaussSigma = sigma;
+}
 
 BoundariesExtractor::GrayImageP BoundariesExtractor::LabelMapToBinaryImage(const LabelMapP& labelMap)
 {
@@ -174,7 +177,7 @@ BoundariesExtractor::GrayImageP BoundariesExtractor::DeleteSmallComponents(GrayI
     ConnectedComponentImageFilterType::Pointer connected = ConnectedComponentImageFilterType::New();
     connected->SetInput(edgesImage);
     connected->FullyConnectedOn();
-    connected->SetBackgroundValue(Background); //black
+    connected->SetBackgroundValue(Background);
     connected->Update();
 
     using LabelImageToLabelMapFilterType =  itk::LabelImageToShapeLabelMapFilter<GrayImageT, LabelMapT>;
@@ -225,6 +228,34 @@ void BoundariesExtractor::SetThinBoundariesOff()
     ThinBoundaries = false;
 }
 
+BoundariesExtractor::GrayImageP BoundariesExtractor::GaussianBlur(const GrayImageP& inputImage, bool show)
+{
+
+    using FilterType = itk::SmoothingRecursiveGaussianImageFilter<GrayImageT, GrayImageT>;
+    FilterType::Pointer smoothFilter = FilterType::New();
+    smoothFilter->SetSigma(GaussSigma);
+    smoothFilter->SetInput(inputImage);
+    smoothFilter->Update();
+
+    if(show)
+    {
+
+        VTKViewer::visualize<GrayImageT>(smoothFilter->GetOutput(), "Gaussian Blur");
+    }
+
+    io::printOK("Gaussian blur");
+    return smoothFilter->GetOutput();
+
+}
+
+void BoundariesExtractor::SetSmallComponentsThreshold(std::uint16_t threshold)
+{
+
+    ComponentsThreshold = threshold;
+}
+
+
+
 void BoundariesExtractor::Process(bool returnResults)
 {
 
@@ -248,22 +279,42 @@ void BoundariesExtractor::Process(bool returnResults)
     auto imagePathIt = imagePaths.begin();
     auto imageNameIt = imageNames.begin();
     GrayImageP boundaries;
-    GrayImageP boundariesFiltered;
+    GrayImageP binaryFiltered;
     GrayImageP binaryImage;
     GrayImageP thinBoundaries;
+    GrayImageP blur;
+
     for(; imagePathIt != imagePaths.end(); ++imagePathIt, ++imageNameIt)
     {
 
         io::printWait("Boundary Extraction image "+*imageNameIt);
-        binaryImage = GrayToBinary(io::ReadImage<GrayImageT>(*imagePathIt));
-        boundaries = ExtractBoundaries(binaryImage);
-        boundariesFiltered = DeleteSmallComponents(boundaries);
+        //TODO consider smoothing the image
+
+        blur = GaussianBlur(io::ReadImage<GrayImageT>(*imagePathIt), false);
+
+
+        binaryImage = GrayToBinary(blur, false);
+
+
+        binaryFiltered = DeleteSmallComponents(binaryImage);
+
+        boundaries = ExtractBoundaries(binaryFiltered);
+
+        //boundaries = ExtractBoundaries(boundaries);
+
+        //boundariesFiltered = DeleteSmallComponents(boundaries);
+
+        //NOTICE apply twice
+
+
+        //VTKViewer::visualize<GrayImageT>(boundariesFiltered);
 
         if(ThinBoundaries)
         {
-            thinBoundaries = ThinningBoundaries(boundariesFiltered);
-            //io::WriteImage<GrayImageT>(thinBoundaries, OutputPath+"/"+*imageNameIt+"_thin_boundaries.tiff");
+            thinBoundaries = ThinningBoundaries(boundaries);
+
             io::WriteImage<GrayImageT>(thinBoundaries, OutputDatasetPath+"/"+*imageNameIt+".tiff");
+            //VTKViewer::visualize<GrayImageT>(thinBoundaries);
             if(returnResults)
             {
                 OutputImages.push_back(thinBoundaries);
@@ -271,11 +322,11 @@ void BoundariesExtractor::Process(bool returnResults)
         }
         else
         {
-            //io::WriteImage<GrayImageT>(thinBoundaries, OutputPath+"/"+*imageNameIt+"_boundaries.tiff");
-            io::WriteImage<GrayImageT>(thinBoundaries, OutputDatasetPath+"/"+*imageNameIt+".tiff");
+
+            io::WriteImage<GrayImageT>(boundaries, OutputDatasetPath+"/"+*imageNameIt+".tiff");
             if(returnResults)
             {
-                OutputImages.push_back(boundariesFiltered);
+                OutputImages.push_back(boundaries);
             }
         }
 

@@ -45,8 +45,8 @@ private:
     using GrayImageT = itk::Image<unsigned, 2>;
     using GrayImageP = GrayImageT::Pointer;
 
-    const unsigned Background = 0;
-    const unsigned Foreground = 255;
+    const unsigned Background{0};
+    const unsigned Foreground{255};
 
     using FeaturesT  = dlib::matrix<double>;
     using FeaturesVectorT = std::vector<FeaturesT>;
