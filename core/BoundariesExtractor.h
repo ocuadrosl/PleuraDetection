@@ -50,6 +50,7 @@ public:
 
     void SetInputDatasetPath (const std::string& dataSetPath);
     void SetOutputDatasetPath(const std::string& outputPath);
+    void SetOutputMaskPath(const std::string& outputPath);
 
     void SetThinBoundariesOn();
     void SetThinBoundariesOff();
@@ -70,7 +71,8 @@ public:
 private:
     //attributes
     std::string InputDatasetPath{"."};
-    std::string OutputDatasetPath{};
+    std::string OutputMaskPath{""};
+    std::string OutputDatasetPath{""};
 
     bool ThinBoundaries{false};
 
@@ -85,6 +87,11 @@ private:
 
     GrayImageP LabelMapToBinaryImage(const LabelMapP& labelMap);
     GrayImageP GaussianBlur(const GrayImageP& inputImage, bool show=false);
+
+
+    GrayImageP ConnectForeground(GrayImageP binaryImage);
+
+
 
 };
 

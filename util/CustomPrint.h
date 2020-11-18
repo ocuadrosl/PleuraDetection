@@ -60,6 +60,34 @@ inline void printFail(std::string message, std::string extraInformation="" , sho
 
 }
 
+
+template <typename VectorT, unsigned size>
+inline void PrintVector(const VectorT& vector)
+{
+
+
+
+   for(unsigned i=0;i< size -1;++i)
+   {
+       std::cout<<vector[i]<<' ';
+   }
+   std::cout<<vector[size-1]<<'\n';
+
+}
+template <typename VectorT>
+inline void PrintVector(const VectorT& vector, unsigned size)
+{
+
+   for(unsigned i=0; i< size -1 ;++i)
+   {
+       std::cout<<vector[i]<<" ";
+   }
+   std::cout<<vector[size-1]<<"\n";
+
+}
+
+
+
 };
 
 #endif // CUSTOMPRINT_H

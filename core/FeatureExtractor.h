@@ -14,6 +14,8 @@
 #include "../util/VTKViewer.h"
 #include "../util/ImageOperations.h"
 #include "../util/FractalDimensionCalculator.h"
+#include "../util/Cast.h"
+
 
 //itk includes
 #include <itkImage.h>
@@ -25,9 +27,20 @@
 #include <itkConnectedComponentImageFilter.h>
 #include <itkLabelImageToShapeLabelMapFilter.h>
 #include <itkRelabelComponentImageFilter.h>
-
-
+#include <itkStochasticFractalDimensionImageFilter.h>
 #include <itkLabelMapToRGBImageFilter.h>
+#include <itkShapeLabelObject.h>
+#include <itkRescaleIntensityImageFilter.h>
+#include <itkPoint.h>
+#include <itkInvertIntensityImageFilter.h>
+#include <itkLinearInterpolateImageFunction.h>
+#include <itkResampleImageFilter.h>
+#include <itkScaleTransform.h>
+#include <itkBinaryErodeImageFilter.h>
+#include <itkFlatStructuringElement.h>
+#include <itkImageMomentsCalculator.h>
+#include <itkImageMaskSpatialObject.h>
+
 
 //Dlib includes
 #include <dlib/array2d.h>
@@ -62,6 +75,8 @@ public:
     void SetImagesPath(const std::string& imagesPath);
     void SetLabelsPath(const std::string& labelsPath);
     void SetKernelSize(const std::size_t& kernelSize);
+    void SetMasksPath(std::string const& masksPath);
+    void SetPleuraMasksPath(const std::string& path);
     FeatureExtractor();
 
     void Process();
@@ -71,10 +86,18 @@ public:
 private:
 
     //for fast implementation, I assume that boundaries and input images have same names
-    std::string BoundariesPath = ".";
-    std::string ImagesPath = "."; //Original Images
-    std::string LabelsPath = ".";
+    std::string BoundariesPath{"."};
+    std::string ImagesPath{"."}; //Original Images
+    std::string LabelsPath{"."};
     std::size_t KernelSize{51};
+    std::string MasksPath{""};
+    std::string PleuraMasksPath{""};
+
+    int ErodeRadius{20};//scale factor to reduce image masks
+
+
+    float MaskScaleFactor{1.5};
+
 
     CentersT   CentersVector;
     FeaturesVectorT  FeaturesVector;
@@ -82,20 +105,37 @@ private:
     std::vector<std::string> ImagesNames;
     std::vector<std::uint16_t> CentersNumberPerImage;
 
-    void FindCenters(GrayImageP boundaries, CentersT& centers);
 
+    GrayImageP ScaleMaskObjectsSize(GrayImageP mask);
+    GrayImageP MatchMaskObjecst(GrayImageP maskOriginal, GrayImageP maskScaled);
+    GrayImageP ErodeMask(GrayImageP maskOriginal);
+    GrayImageP FindROIMask(GrayImageP maskOriginal, GrayImageP maskScaledCentered);
+
+
+    void FindCenters(GrayImageP boundaries, CentersT& centers);
     void FindLabels(const RGBImageP& labelsImage, const CentersT& centersVector, std::vector<double>& labelsVector);
 
-    void ComputeLBPFeatures(GrayImageP grayImage, const CentersT& centers, FeaturesVectorT& featuresVector);
-    void ComputeFractalDimension(const GrayImageP &, const CentersT& centers, FeaturesVectorT& featuresVector);
-    void ComputeCooccurrenceMatrixFeatures(GrayImageP grayImage, const CentersT& centers, FeaturesVectorT& featuresVector);
+    void ComputeLBPFeatures(GrayImageP grayImage, GrayImageP masks, const CentersT& centers, std::vector<std::vector<unsigned long>>& featuresVector);
+    void FractalDimensionBoxCounting(const GrayImageP &, const CentersT& centers, std::vector<double>& fractalDim);
+    void ComputeCooccurrenceMatrixFeatures(GrayImageP grayImage, GrayImageP maskImage, const CentersT& centers, std::vector<std::vector<double>> &featuresVector);
+
+    void CreateFeaturesVector(const std::vector< double>& fractal,
+                              const std::vector<std::vector<unsigned long>>& lbp,
+                              const std::vector<std::vector<double>>& cooccurrence,
+                              const std::vector<std::vector<double>>& moments,
+                              FeaturesVectorT& featuresVector);
+
+    void ComputeStatisticalMoments(const GrayImageP & image,
+                                   const GrayImageP & mask,
+                                   const CentersT& centers,
+                                   std::vector<std::vector<double>>& moments);
+
+
+    static std::string  deleteSlash(std::string const& path);
+
+
     void ComputeShapeFeatures(GrayImageP boundaries, const CentersT& centers, FeaturesVectorT& featuresVector);
-    void ComputeShapeAndFractalFeatures(GrayImageP grayImage, GrayImageP boundaries, const CentersT& centers, FeaturesVectorT& featuresVector);
-
-
-
-
-
+    void StochastichFractalFeatures(GrayImageP grayImage, GrayImageP mask, const CentersT& centers, FeaturesVectorT& featuresVector);
 
 };
 

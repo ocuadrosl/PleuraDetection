@@ -11,14 +11,13 @@ find_package(ITK REQUIRED)
 find_package(dlib REQUIRED)
 
 include(${ITK_USE_FILE})
-#include(${VTK_USE_FILE}) deprecated, is no longer used starting with 8.90.
+#include(${VTK_USE_FILE})# deprecated, is no longer used starting with 8.90.
 
 
 file(GLOB core
     "core/*.h"
    "core/*.cpp"
 )
-
 
 file(GLOB util
     "util/*.h"
@@ -32,6 +31,8 @@ add_executable(${PROJECT_NAME}
     ${util}
 
     )
+
+
 
 target_link_libraries(${PROJECT_NAME} ${VTK_LIBRARIES})
 target_link_libraries(${PROJECT_NAME} ${ITK_LIBRARIES})

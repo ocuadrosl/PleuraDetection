@@ -110,6 +110,14 @@ void Trainer::ProcessSVMRadial()
     dlib::svm_c_trainer<KernelT> trainer;
 
 
+    double gamma=0.1;
+    double C = 1;
+    trainer.set_kernel(KernelT(gamma));
+    trainer.set_c(C);
+    std::cout << "gamma: " << gamma << "    C: " << C;
+    std::cout << " cross validation accuracy: " << cross_validate_trainer(trainer, Samples, Labels, 10);
+
+    /*
 
     //double  maxClassificationAccuracy = 0;
     for (double gamma = 0.00001; gamma <= 1; gamma *= 5)
@@ -123,9 +131,9 @@ void Trainer::ProcessSVMRadial()
             std::cout << "gamma: " << gamma << "    C: " << C;
             std::cout << " cross validation accuracy: " << cross_validate_trainer(trainer, Samples, Labels, 10);
 
-
         }
     }
+    */
 
 }
 

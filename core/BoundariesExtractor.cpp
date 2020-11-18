@@ -38,12 +38,11 @@ void BoundariesExtractor::ConnectBackground(GrayImageP& grayImage)
 }
 
 
-BoundariesExtractor::GrayImageP BoundariesExtractor::ExtractBoundaries(GrayImageP binaryImage)
+BoundariesExtractor::GrayImageP BoundariesExtractor::ConnectForeground(GrayImageP binaryImage)
 {
 
     //Connecting background
     ConnectBackground(binaryImage);
-
 
     //Detecting background, thi goal is to set internal pixel to 0
     using ConnectedFilterType = itk::ConnectedThresholdImageFilter<GrayImageT, GrayImageT>;
@@ -56,11 +55,32 @@ BoundariesExtractor::GrayImageP BoundariesExtractor::ExtractBoundaries(GrayImage
 
     connectedThreshold->Update();
 
+    return connectedThreshold->GetOutput();
+
+}
+
+BoundariesExtractor::GrayImageP BoundariesExtractor::ExtractBoundaries(GrayImageP connectedForeground)
+{
+
+/*  //Connecting background
+    ConnectBackground(binaryImage);
+
+    //Detecting background, thi goal is to set internal pixel to 0
+    using ConnectedFilterType = itk::ConnectedThresholdImageFilter<GrayImageT, GrayImageT>;
+    ConnectedFilterType::Pointer connectedThreshold = ConnectedFilterType::New();
+    connectedThreshold->SetInput(binaryImage);
+    connectedThreshold->SetLower(Background);
+    connectedThreshold->SetUpper(Background);
+    connectedThreshold->SetSeed({0,0});
+    connectedThreshold->SetReplaceValue(Foreground);
+
+    connectedThreshold->Update();
+*/
     //VTKViewer::visualize<GrayImageT>(connectedThreshold->GetOutput());
 
     using binaryContourImageFilterType = itk::BinaryContourImageFilter<GrayImageT, GrayImageT>;
     binaryContourImageFilterType::Pointer binaryContourFilter = binaryContourImageFilterType::New();
-    binaryContourFilter->SetInput(connectedThreshold->GetOutput());
+    binaryContourFilter->SetInput(connectedForeground);
     binaryContourFilter->SetBackgroundValue(Background);
     binaryContourFilter->SetForegroundValue(Foreground);
     binaryContourFilter->FullyConnectedOn();
@@ -180,6 +200,7 @@ BoundariesExtractor::GrayImageP BoundariesExtractor::DeleteSmallComponents(GrayI
     connected->SetBackgroundValue(Background);
     connected->Update();
 
+
     using LabelImageToLabelMapFilterType =  itk::LabelImageToShapeLabelMapFilter<GrayImageT, LabelMapT>;
     typename LabelImageToLabelMapFilterType::Pointer labelImageToLabelMapFilter = LabelImageToLabelMapFilterType::New();
     labelImageToLabelMapFilter->SetInput(connected->GetOutput());
@@ -255,6 +276,11 @@ void BoundariesExtractor::SetSmallComponentsThreshold(std::uint16_t threshold)
 }
 
 
+void BoundariesExtractor::SetOutputMaskPath(const std::string& outputPath)
+{
+    this->OutputMaskPath = outputPath;
+}
+
 
 void BoundariesExtractor::Process(bool returnResults)
 {
@@ -281,8 +307,8 @@ void BoundariesExtractor::Process(bool returnResults)
     GrayImageP boundaries;
     GrayImageP binaryFiltered;
     GrayImageP binaryImage;
-    GrayImageP thinBoundaries;
     GrayImageP blur;
+    GrayImageP connectedForeground;
 
     for(; imagePathIt != imagePaths.end(); ++imagePathIt, ++imageNameIt)
     {
@@ -298,22 +324,24 @@ void BoundariesExtractor::Process(bool returnResults)
 
         binaryFiltered = DeleteSmallComponents(binaryImage);
 
-        boundaries = ExtractBoundaries(binaryFiltered);
+        connectedForeground = ConnectForeground(binaryFiltered);
 
-        //boundaries = ExtractBoundaries(boundaries);
+        boundaries = ExtractBoundaries(connectedForeground);
 
-        //boundariesFiltered = DeleteSmallComponents(boundaries);
-
-        //NOTICE apply twice
-
-
-        //VTKViewer::visualize<GrayImageT>(boundariesFiltered);
+        //VTKViewer::visualize<GrayImageT>(boundaries);
 
         if(ThinBoundaries)
         {
-            thinBoundaries = ThinningBoundaries(boundaries);
+            auto thinBoundaries = ThinningBoundaries(boundaries);
 
-            io::WriteImage<GrayImageT>(thinBoundaries, OutputDatasetPath+"/"+*imageNameIt+".tiff");
+            if(OutputDatasetPath != "")
+            {
+                io::WriteImage<GrayImageT>(thinBoundaries, OutputDatasetPath+"/"+*imageNameIt+".tiff");
+            }
+            if(OutputMaskPath != "")
+            {
+                io::WriteImage<GrayImageT>(connectedForeground, OutputMaskPath+"/"+*imageNameIt+".tiff");
+            }
             //VTKViewer::visualize<GrayImageT>(thinBoundaries);
             if(returnResults)
             {
@@ -322,8 +350,15 @@ void BoundariesExtractor::Process(bool returnResults)
         }
         else
         {
+            if(OutputDatasetPath != "")
+            {
+                io::WriteImage<GrayImageT>(boundaries, OutputDatasetPath+"/"+*imageNameIt+".tiff");
+            }
+            if(OutputMaskPath != "")
+            {
+                io::WriteImage<GrayImageT>(connectedForeground, OutputMaskPath+"/"+*imageNameIt+".tiff");
+            }
 
-            io::WriteImage<GrayImageT>(boundaries, OutputDatasetPath+"/"+*imageNameIt+".tiff");
             if(returnResults)
             {
                 OutputImages.push_back(boundaries);

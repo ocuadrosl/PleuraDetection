@@ -5,6 +5,12 @@ FeatureExtractor::FeatureExtractor()
 
 }
 
+std::string FeatureExtractor::deleteSlash(std::string const& path)
+{
+    return (*path.rbegin() == '/') ? path.substr(0, path.length()-1) : path;
+}
+
+
 /*
 Boundaries muts be binary images with background value equals to zero and foreground 255
 */
@@ -12,6 +18,11 @@ void FeatureExtractor::SetBoundariesPath(const std::string& boundariesPath)
 {
     //delet last "/"
     BoundariesPath = (*boundariesPath.rbegin() == '/') ? boundariesPath.substr(0, boundariesPath.length()-1) : boundariesPath;
+}
+
+void FeatureExtractor::SetPleuraMasksPath(const std::string& path)
+{
+    PleuraMasksPath = (*path.rbegin() == '/') ? path.substr(0, path.length()-1) : path;
 }
 
 void FeatureExtractor::SetImagesPath(const std::string& imagesPath)
@@ -57,17 +68,23 @@ void FeatureExtractor::FindCenters(GrayImageP boundaries, std::vector<GrayImageT
     itk::NeighborhoodIterator<GrayImageT>::RadiusType radius;
     radius.Fill(KernelSize/2);
 
-    itk::ConstNeighborhoodIterator<GrayImageT> it(radius, boundariesDuplicate, boundariesDuplicate->GetRequestedRegion());
+    itk::NeighborhoodIterator<GrayImageT> it(radius, boundariesDuplicate, boundariesDuplicate->GetRequestedRegion());
     //ensure centers vector is empty
     centers.clear();
+
     for (it.GoToBegin(); !it.IsAtEnd(); ++it)
     {
 
         if(it.GetCenterPixel() == Foreground)
         {
             centers.push_back(it.GetIndex());
+
+            //for (auto nIt = it.Begin(); nIt != it.End() ; ++nIt)
             for (unsigned i=0; i < it.Size(); ++i)
             {
+                //cout << typeid(nIt).name() << '\n';
+                //(**nIt) = Background;
+                //std::cout<<(**nIt)<<std::endl;
                 const auto& index = it.GetIndex(i);
                 if(boundariesDuplicate->GetRequestedRegion().IsInside(index))
                 {
@@ -75,7 +92,7 @@ void FeatureExtractor::FindCenters(GrayImageP boundaries, std::vector<GrayImageT
                     //tmpImage->SetPixel(index, Foreground);
                 }
             }
-            //VTKViewer::visualize<GrayImageT>(tmpImage, "Centers");
+            //VTKViewer::visualize<GrayImageT>(boundariesDuplicate, "Centers");
         }
 
 
@@ -86,52 +103,56 @@ void FeatureExtractor::FindCenters(GrayImageP boundaries, std::vector<GrayImageT
 
 }
 
-void FeatureExtractor::ComputeLBPFeatures(GrayImageP grayImage, const CentersT& centers, FeaturesVectorT& featuresVector)
+void FeatureExtractor::ComputeLBPFeatures(GrayImageP grayImage,
+                                          GrayImageP masks,
+                                          const CentersT& centers,
+                                          std::vector<std::vector<unsigned long>>& lbpHistograms)
 {
-    featuresVector.clear();
-    featuresVector.reserve(centers.size());
+    lbpHistograms.clear();
+    lbpHistograms.reserve(centers.size());
 
-    using grayPixeT = GrayImageT::PixelType;
-    using dlibGrayImageT = dlib::array2d<grayPixeT>;
+    using grayPixelT = unsigned;
+    using dlibGrayImageT = dlib::array2d<grayPixelT>;
 
     //ITK to Dlib image
     dlibGrayImageT dlibGrayImage;
-    image::ITKToDlib<grayPixeT, grayPixeT>(grayImage, dlibGrayImage);
+    image::ITKToDlib<grayPixelT, grayPixelT>(grayImage, dlibGrayImage);
 
-    //compute uniform LBP
-    using lbpImageT = dlib::array2d<unsigned char>;
-    lbpImageT lbpImage;
-    dlib::make_uniform_lbp_image(dlibGrayImage, lbpImage);
+    dlibGrayImageT lbpImage;
+    dlib::make_uniform_lbp_image<dlibGrayImageT, dlibGrayImageT>(dlibGrayImage, lbpImage);
 
+    dlibGrayImageT dlibMasks;
+    image::ITKToDlib<grayPixelT, grayPixelT>(masks, dlibMasks);
 
-    //dlib::image_window my_window(lbpImage, "LBP");
+    // dlib::image_window my_window(dlibMasks, "LBP");
     //my_window.wait_until_closed();
 
-    const auto& ExtractNeighborhood = image::ExtractNeighborhood<lbpImageT, GrayImageT::IndexType>;
-    dlib::array2d<unsigned char> neighborhood;
+    const auto& ExtractNeighborhoodDlib = image::ExtractNeighborhoodDLib<dlibGrayImageT, GrayImageT::IndexType>;
+    const auto& Histogram = image::ComputeHistogram<dlibGrayImageT, std::vector<unsigned long> >;
 
-    dlib::matrix<unsigned long> lbpHistogramLongT;
-    FeaturesT lbpHistogram(59,1);
 
     for(const auto& index: centers)
     {
+        FeaturesT features(59,1); //59 LBP
+        dlibGrayImageT imgTile, maskTile;
 
-        ExtractNeighborhood(lbpImage, index, KernelSize, neighborhood);
-        //dlib::image_window my_window2(neighborhood, "LBP");
-        // my_window2.wait_until_closed();
-        dlib::get_histogram(neighborhood, lbpHistogramLongT, 59);
+        ExtractNeighborhoodDlib(lbpImage, index, KernelSize, imgTile);
+        ExtractNeighborhoodDlib(dlibMasks, index, KernelSize, maskTile);
 
+        /*
+        dlib::image_window my_window2(imgTile, "LBP");
+        my_window2.wait_until_closed();
 
-        auto itLong = lbpHistogramLongT.begin();
-        auto itDouble = lbpHistogram.begin();
-        for(; itLong != lbpHistogramLongT.end(); ++itLong, ++itDouble)
-        {
-            (*itDouble) = static_cast<double>(*itLong);
+        dlib::image_window my_window3(maskTile, "Mask");
+        my_window3.wait_until_closed();
 
-        }
+*/
+        // dlib::get_histogram(neighborhood, lbpHistogramLongT, 59);
 
-        featuresVector.push_back(lbpHistogram);
-
+        //dlib::array<unsigned long> lbpHistogram(59);
+        std::vector<unsigned long> lbpHistogram(59,0);
+        Histogram(imgTile, maskTile, lbpHistogram);
+        lbpHistograms.emplace_back(lbpHistogram);
 
     }
 
@@ -226,56 +247,38 @@ void FeatureExtractor::ComputeShapeFeatures(GrayImageP grayImage, const CentersT
 }
 
 
-void FeatureExtractor::ComputeFractalDimension(const GrayImageP& grayImage, const CentersT& centers, FeaturesVectorT& featuresVector)
+void FeatureExtractor::FractalDimensionBoxCounting(const GrayImageP& grayImage, const CentersT& centers, std::vector<double>& fractalDimensions)
 {
 
     //VTKViewer::visualize<GrayImageT>(grayImage, "neigh");
 
     const auto& extractNeighborhood = image::ExtractNeighborhoodITK<GrayImageT>;
 
-    featuresVector.clear();
-    featuresVector.reserve(centers.size());
+    fractalDimensions.clear();
+    fractalDimensions.reserve(centers.size());
 
-    //flatness
-    //elongation
-
-    FeaturesT features(1,1);
-
-    auto fractalDimension = std::make_unique<FractalDimensionCalculator<GrayImageT>>();
-    fractalDimension->PrintWarningsOff();
-    fractalDimension->SetBackGround(255);
     for(const auto& center: centers)
     {
         GrayImageT::Pointer neighborhood;
         extractNeighborhood(grayImage, center, KernelSize, neighborhood);
-        //VTKViewer::visualize<GrayImageT>(neighborhood, "neigh");
+        //VTKViewer::visualize<GrayImageT>(neighborhood, "Fractal dim kernel");
 
-
-        fractalDimension->SetInputImage(neighborhood);
-        fractalDimension->Compute();
-        features(0,0) = fractalDimension->GetDimension();
-
-
-
-
-
-
-
-
-
-
-        featuresVector.emplace_back(features);
-        //std::cout<<features<<std::endl;
+        FractalDimensionCalculator<GrayImageT> fractalDimension;
+        fractalDimension.PrintWarningsOff();
+        fractalDimension.SetBackGround(Background);
+        fractalDimension.SetInputImage(neighborhood);
+        fractalDimension.Compute();
+        fractalDimensions.emplace_back(fractalDimension.GetDimension());
 
     }
 
-    io::printOK("Fractal dimension features");
+    io::printOK("Fractal dimension boundaries");
 
 
 
 }
 
-void FeatureExtractor::ComputeShapeAndFractalFeatures(GrayImageP grayImage, GrayImageP boundaries, const CentersT& centers, FeaturesVectorT& featuresVector)
+void FeatureExtractor::StochastichFractalFeatures(GrayImageP grayImage, GrayImageP masks, const CentersT& centers, FeaturesVectorT& featuresVector)
 {
 
 
@@ -285,67 +288,48 @@ void FeatureExtractor::ComputeShapeAndFractalFeatures(GrayImageP grayImage, Gray
     using ShapeLabelObjectType = itk::ShapeLabelObject<LabelType, 2>;
     using LabelMapType = itk::LabelMap<ShapeLabelObjectType>;
 
-    using ConnectedComponentImageT = itk::ConnectedComponentImageFilter<GrayImageT, OutputImageT>;
-    using LabelImageToShapeLabelMapT = itk::LabelImageToShapeLabelMapFilter<OutputImageT, LabelMapType>;
-    using RelabelComponentT = itk::RelabelComponentImageFilter<OutputImageT, OutputImageT>;
-
     const auto& extractNeighborhood = image::ExtractNeighborhoodITK<GrayImageT>;
 
     featuresVector.clear();
     featuresVector.reserve(centers.size());
 
-    //flatness
-    //elongation
+    using  StochasticFractalFilter =  itk::StochasticFractalDimensionImageFilter<GrayImageT, GrayImageT, GrayImageT>;
 
-    FeaturesT features(4,1);
-
-    auto fractalDimension = std::make_unique<FractalDimensionCalculator<GrayImageT>>();
-    fractalDimension->PrintWarningsOff();
+    FeaturesT features(1,1);
 
     for(const auto& center: centers)
     {
         //fractal image
         GrayImageT::Pointer tileImage;
+        GrayImageT::Pointer mask;
 
         extractNeighborhood(grayImage, center, KernelSize, tileImage);
-        fractalDimension->SetInputImage(tileImage);
-        fractalDimension->SetBackGround(Foreground);
-        fractalDimension->Compute();
-        features(0,0) = fractalDimension->GetDimension();
+        extractNeighborhood(masks, center, KernelSize, mask);
+
+        //VTKViewer::visualize<GrayImageT>(tileImage,"Tile");
+        VTKViewer::visualize<GrayImageT>(mask,"tile mask");
 
 
-        //boundaries
-        GrayImageT::Pointer tileBoundaries;
-        extractNeighborhood(boundaries, center, KernelSize, tileBoundaries);
-
-        ConnectedComponentImageT::Pointer connected = ConnectedComponentImageT::New();
-        connected->SetInput(tileBoundaries);
-        connected->FullyConnectedOn();
-        connected->SetBackgroundValue(Background); //black
-        connected->Update();
-
-        //Relabel objects so that the largest object has label #1,
-        RelabelComponentT::Pointer relabelFilter = RelabelComponentT::New();
-        relabelFilter->SetInput(connected->GetOutput());
-        relabelFilter->Update();
-
-        LabelImageToShapeLabelMapT::Pointer labelImageToShapeMap = LabelImageToShapeLabelMapT::New();
-        labelImageToShapeMap->SetInput(relabelFilter->GetOutput());
-        labelImageToShapeMap->Update();
-
-        auto largestObject = labelImageToShapeMap->GetOutput()->GetLabelObject(1);
-
-        features(1,0) = largestObject->GetFlatness();
-        features(2,0) = largestObject->GetRoundness();
+        StochasticFractalFilter::Pointer stochasticFractalPointer = StochasticFractalFilter::New();
+        stochasticFractalPointer->SetInput(tileImage);
+        stochasticFractalPointer->SetMaskImage(mask);
+        stochasticFractalPointer->Update();
 
 
-        fractalDimension->SetInputImage(tileBoundaries);
-        fractalDimension->SetBackGround(Background);
-        fractalDimension->Compute();
-        features(3,0) = fractalDimension->GetDimension();
+        //stochasticFractalPointer->get
+        auto fractalOutput = stochasticFractalPointer->GetOutput();
 
-        featuresVector.emplace_back(features);
-        //std::cout<<features<<std::endl;
+
+        using FilterType = itk::RescaleIntensityImageFilter<GrayImageT, GrayImageT>;
+        FilterType::Pointer filter = FilterType::New();
+        filter->SetInput(fractalOutput);
+        filter->SetOutputMinimum(0);
+        filter->SetOutputMaximum(255);
+        filter->Update();
+
+
+        VTKViewer::visualize<GrayImageT>(tileImage,"Tile");
+        VTKViewer::visualize<GrayImageT>(filter->GetOutput(),"fractal");
 
     }
 
@@ -356,8 +340,14 @@ void FeatureExtractor::ComputeShapeAndFractalFeatures(GrayImageP grayImage, Gray
 }
 
 
-void FeatureExtractor::ComputeCooccurrenceMatrixFeatures(GrayImageP grayImage,  const CentersT& centers, FeaturesVectorT& featuresVector)
+void FeatureExtractor::ComputeCooccurrenceMatrixFeatures(GrayImageP grayImage,
+                                                         GrayImageP maskImage,
+                                                         const CentersT& centers,
+                                                         std::vector<std::vector<double>> &featuresVector)
 {
+
+    featuresVector.clear();
+    featuresVector.reserve(centers.size());
 
     using ScalarImageToCooccurrenceMatrixFilter =  itk::Statistics::ScalarImageToCooccurrenceMatrixFilter<GrayImageT>;
 
@@ -365,7 +355,7 @@ void FeatureExtractor::ComputeCooccurrenceMatrixFeatures(GrayImageP grayImage,  
     using offsetVectorT = itk::VectorContainer<unsigned char, ScalarImageToCooccurrenceMatrixFilter::OffsetType>;
 
     //using offsetT = GrayImageT::OffsetType;
-    //offsetT offset = {-1,1};
+    //offsetT offset = {-1,1};FindCenters
 
     offsetVectorT::Pointer offsets = offsetVectorT::New();
     // offsets->reserve(2);
@@ -383,39 +373,43 @@ void FeatureExtractor::ComputeCooccurrenceMatrixFeatures(GrayImageP grayImage,  
     featuresVector.clear();
     featuresVector.reserve(centers.size());
 
-    FeaturesT features(4,1);
-
     for(auto it = centers.begin(); it != centers.end(); ++it)
     {
 
-        GrayImageT::Pointer neighborhood;
-        extractNeighborhood(grayImage, *it, KernelSize, neighborhood);
+        GrayImageT::Pointer tile;
+        GrayImageT::Pointer tileMask;
+
+        extractNeighborhood(grayImage, *it, KernelSize, tile);
+        extractNeighborhood(maskImage, *it, KernelSize, tileMask);
 
         //std::cout<<*it<<std::endl;
-        //VTKViewer::visualize<GrayImageT>(neighborhood, "neigh");
-
+        //VTKViewer::visualize<GrayImageT>(tile, "neigh");
+        //VTKViewer::visualize<GrayImageT>(tileMask, "neigh");
 
         ScalarImageToCooccurrenceMatrixFilter::Pointer scalarImageToCooccurrenceMatrixFilter = ScalarImageToCooccurrenceMatrixFilter::New();
 
-        scalarImageToCooccurrenceMatrixFilter->SetInput(neighborhood);
+        scalarImageToCooccurrenceMatrixFilter->SetInput(tile);
         scalarImageToCooccurrenceMatrixFilter->SetOffsets(offsets);
         scalarImageToCooccurrenceMatrixFilter->SetNumberOfBinsPerAxis(256);
         scalarImageToCooccurrenceMatrixFilter->SetPixelValueMinMax(0,255);
-
-
+        scalarImageToCooccurrenceMatrixFilter->SetMaskImage(tileMask);
+        scalarImageToCooccurrenceMatrixFilter->SetInsidePixelValue(255);
         scalarImageToCooccurrenceMatrixFilter->Update();
 
 
-        histToFeaturesT::Pointer histFeatures =  histToFeaturesT::New();
-        histFeatures->SetInput(scalarImageToCooccurrenceMatrixFilter->GetOutput());
-        histFeatures->Update();
+        histToFeaturesT::Pointer histFeaturesFilter =  histToFeaturesT::New();
+        histFeaturesFilter->SetInput(scalarImageToCooccurrenceMatrixFilter->GetOutput());
+        histFeaturesFilter->Update();
 
-        features(0,0) = histFeatures->GetEnergy();
-        features(1,0) = histFeatures->GetEntropy();
-        features(2,0) = histFeatures->GetCorrelation();
-        features(3,0) = histFeatures->GetInertia();
+        std::vector<double> histFeatures(4);
+        histFeatures[0] = histFeaturesFilter->GetEnergy();
+        histFeatures[1] = histFeaturesFilter->GetEntropy();
+        histFeatures[2] = histFeaturesFilter->GetCorrelation();
+        histFeatures[3] = histFeaturesFilter->GetInertia();
 
-        featuresVector.push_back(features);
+        //std::cout<<histFeatures[0]<<std::endl;
+
+        featuresVector.emplace_back(histFeatures);
 
         //std::cout<<features<<std::endl;
 
@@ -431,7 +425,7 @@ void FeatureExtractor::WriteFeaturesCSV(const std::string& fileName, bool writeH
 
     if(writeHeader)
     {
-        csvFile<<"Image Name,Col, Row,";
+        csvFile<<"Image_Name,Col,Row,";
         for(unsigned i=0; i< FeaturesVector.begin()->size() ; ++i  )
         {
             csvFile<<"feature_"<<i+1<<",";
@@ -508,6 +502,367 @@ void FeatureExtractor::FindLabels(const RGBImageP& labelsImage,
 
 }
 
+void FeatureExtractor::SetMasksPath(std::string const& masksPath)
+{
+    MasksPath = FeatureExtractor::deleteSlash(masksPath);
+}
+
+
+
+FeatureExtractor::GrayImageP FeatureExtractor::ScaleMaskObjectsSize(GrayImageP mask)
+{
+
+    auto size  = mask->GetRequestedRegion().GetSize();
+    auto spacing = mask->GetSpacing();
+    itk::Index<2> centralPixel;
+    centralPixel[0] = size[0] / 2;
+    centralPixel[1] = size[1] / 2;
+
+    itk::Point<double, 2> centralPoint;
+    centralPoint[0] = centralPixel[0];
+    centralPoint[1] = centralPixel[1];
+
+    using ScaleTransformType = itk::ScaleTransform<double, 2>;
+    ScaleTransformType::Pointer scaleTransform = ScaleTransformType::New();
+    ScaleTransformType::ParametersType parameters = scaleTransform->GetParameters();
+    parameters[1] = MaskScaleFactor;//1.5;
+    parameters[0] = MaskScaleFactor;//1.5;
+
+    scaleTransform->SetParameters(parameters);
+    scaleTransform->SetCenter(centralPoint);
+
+    using LinearInterpolatorType = itk::LinearInterpolateImageFunction<GrayImageT, double>;
+    LinearInterpolatorType::Pointer interpolator = LinearInterpolatorType::New();
+
+    using ResampleFilterType = itk::ResampleImageFilter<GrayImageT, GrayImageT>;
+    ResampleFilterType::Pointer resampleFilter = ResampleFilterType::New();
+
+    using InvertIntensityImageFilterType = itk::InvertIntensityImageFilter<GrayImageT>;
+    InvertIntensityImageFilterType::Pointer invertIntensityFilter = InvertIntensityImageFilterType::New();
+    invertIntensityFilter->SetMaximum(Foreground);
+    invertIntensityFilter->SetInput(mask);
+
+    resampleFilter->SetInput(invertIntensityFilter->GetOutput());
+    resampleFilter->SetTransform(scaleTransform);
+    resampleFilter->SetInterpolator(interpolator);
+    resampleFilter->SetSize(size);
+    resampleFilter->SetOutputSpacing(spacing);
+
+
+    resampleFilter->Update();
+
+    invertIntensityFilter = InvertIntensityImageFilterType::New();
+    invertIntensityFilter->SetMaximum(Foreground);
+    invertIntensityFilter->SetInput(resampleFilter->GetOutput());
+    invertIntensityFilter->Update();
+
+
+    auto result = invertIntensityFilter->GetOutput();
+    result->SetRegions(mask->GetRequestedRegion());
+    result->Update();
+    //VTKViewer::visualize<GrayImageT>(result, "scaled");
+    return result;
+
+
+
+
+
+}
+
+FeatureExtractor::GrayImageP FeatureExtractor::MatchMaskObjecst(GrayImageP maskOriginal, GrayImageP maskScaled)
+{
+    //label maps types
+    using LabelType = unsigned;
+    //using OutputImageT = itk::Image<unsigned, 2>;
+
+    using ShapeLabelObjectType = itk::ShapeLabelObject<LabelType, 2>;
+    using LabelMapType = itk::LabelMap<ShapeLabelObjectType>;
+
+    using ConnectedComponentImageT = itk::ConnectedComponentImageFilter<GrayImageT, GrayImageT>;
+    using LabelImageToShapeLabelMapT = itk::LabelImageToShapeLabelMapFilter<GrayImageT, LabelMapType>;
+
+
+    using InvertIntensityImageFilterType = itk::InvertIntensityImageFilter<GrayImageT>;
+    using RelabelComponentT = itk::RelabelComponentImageFilter<GrayImageT, GrayImageT>;
+
+
+    //compute original mask's centroids
+    InvertIntensityImageFilterType::Pointer invertIntensityFilter = InvertIntensityImageFilterType::New();
+    invertIntensityFilter->SetMaximum(Foreground);
+    invertIntensityFilter->SetInput(maskOriginal);
+    //invertIntensityFilter->Update();
+
+    ConnectedComponentImageT::Pointer connectedOrg = ConnectedComponentImageT::New();
+    connectedOrg->SetInput(invertIntensityFilter->GetOutput());
+    connectedOrg->FullyConnectedOn();
+    //connectedOrg->SetBackgroundValue(Background);
+    //connectedOrg->Update();
+
+    //Relabel objects so that the largest object has label #1,
+    RelabelComponentT::Pointer relabelFilter = RelabelComponentT::New();
+    relabelFilter->SetInput(connectedOrg->GetOutput());
+    //relabelFilter->Update();
+
+    LabelImageToShapeLabelMapT::Pointer labelImageToShapeMapOrg = LabelImageToShapeLabelMapT::New();
+    labelImageToShapeMapOrg->SetInput(relabelFilter->GetOutput());
+    labelImageToShapeMapOrg->Update();
+    auto labelMapOrg = labelImageToShapeMapOrg->GetOutput(); //original
+
+    /*
+    //Label-map to RGB image
+    using  rgbImageT =  itk::Image<itk::RGBPixel<unsigned char>, 2>;
+    typedef itk::LabelMapToRGBImageFilter<LabelMapType, rgbImageT> RGBFilterType;
+    typename RGBFilterType::Pointer labelMapToRGBFilter = RGBFilterType::New();
+    labelMapToRGBFilter->SetInput(labelMapOrg);
+    labelMapToRGBFilter->Update();
+    VTKViewer::visualize<rgbImageT>(labelMapToRGBFilter->GetOutput(), "Mask org");
+*/
+
+    //compute scaled mask's
+    InvertIntensityImageFilterType::Pointer invertIntensityFilterSca = InvertIntensityImageFilterType::New();
+    invertIntensityFilterSca->SetMaximum(Foreground);
+    invertIntensityFilterSca->SetInput(maskScaled);
+    //invertIntensityFilterSca->Update();
+
+    ConnectedComponentImageT::Pointer connectedSca = ConnectedComponentImageT::New();
+    connectedSca->SetInput(invertIntensityFilterSca->GetOutput());
+    connectedSca->FullyConnectedOn();
+    //connectedSca->SetBackgroundValue(Background);
+    //connectedSca->Update();
+
+
+    RelabelComponentT::Pointer relabelFilterSca = RelabelComponentT::New();
+    relabelFilterSca->SetInput(connectedSca->GetOutput());
+    //relabelFilterSca->Update();
+
+    LabelImageToShapeLabelMapT::Pointer  labelImageToShapeMapSca = LabelImageToShapeLabelMapT::New();
+    labelImageToShapeMapSca->SetInput(relabelFilterSca->GetOutput());
+    labelImageToShapeMapSca->Update();
+    auto labelMapSca = labelImageToShapeMapSca->GetOutput(); //scaled
+
+    /*
+    //Label-map to RGB image
+    using  rgbImageT =  itk::Image<itk::RGBPixel<unsigned char>, 2>;
+    typedef itk::LabelMapToRGBImageFilter<LabelMapType, rgbImageT> RGBFilterType;
+    typename RGBFilterType::Pointer labelMapToRGBFilter = RGBFilterType::New();
+    labelMapToRGBFilter->SetInput(labelMapSca);
+    labelMapToRGBFilter->Update();
+    VTKViewer::visualize<rgbImageT>(labelMapToRGBFilter->GetOutput(), "Mask org");
+    */
+
+
+    //std::cout<<labelMapOrg->GetNumberOfLabelObjects()<<std::endl;
+    //std::cout<<labelMapSca->GetNumberOfLabelObjects()<<std::endl;
+
+
+    //Create result image
+    GrayImageP maskScaledMatch = GrayImageT::New();
+    maskScaledMatch->SetRegions(maskOriginal->GetRequestedRegion());
+    maskScaledMatch->Allocate();
+    maskScaledMatch->FillBuffer(Foreground);
+
+    LabelMapType::ConstIterator labelMapScaIt(labelMapSca);
+    LabelMapType::ConstIterator labelMapOrgIt(labelMapOrg);
+
+    //for some reason the number of objecst is note the same after scaling
+    while(!labelMapScaIt.IsAtEnd() && !labelMapOrgIt.IsAtEnd())
+    {
+        auto labelObjOrg = labelMapOrgIt.GetLabelObject();
+        auto labelObjSca = labelMapScaIt.GetLabelObject();
+
+        auto centObjOrg = labelObjOrg->GetCentroid();
+        auto centObjSca = labelObjSca->GetCentroid();
+
+        ShapeLabelObjectType::ConstIndexIterator labelObjIt(labelObjSca);
+
+        while(!labelObjIt.IsAtEnd())
+        {
+            GrayImageT::IndexType indexSca = labelObjIt.GetIndex();
+
+            GrayImageT::IndexType newPos;
+            newPos[0] = (static_cast<int>(indexSca[0]) - centObjSca[0]) + centObjOrg[0];
+            newPos[1] = (static_cast<int>(indexSca[1]) - centObjSca[1]) + centObjOrg[1];
+
+            maskScaledMatch->SetPixel(newPos, Background);
+            ++labelObjIt;
+        }
+
+        ++labelMapScaIt;
+        ++labelMapOrgIt;
+    }
+
+    return maskScaledMatch;
+    //VTKViewer::visualize<GrayImageT>(maskScaled, "Mask scaled");
+    //VTKViewer::visualize<GrayImageT>(maskScaledMatch, "Mask scaled matched");
+
+}
+
+/**
+mask must be  background = 0 and foreground = 255
+*/
+FeatureExtractor::GrayImageP FeatureExtractor::FindROIMask(GrayImageP maskOriginal, GrayImageP maskScaledCentered)
+{
+
+    //Create result image
+    GrayImageP roiMask = GrayImageT::New();
+    roiMask->SetRegions(maskOriginal->GetRequestedRegion());
+    roiMask->Allocate();
+    roiMask->FillBuffer(Foreground);
+
+    itk::ImageRegionConstIterator<GrayImageT> orgIt(maskOriginal,  maskOriginal->GetRequestedRegion());
+    itk::ImageRegionIterator     <GrayImageT> scaIt(maskScaledCentered, maskScaledCentered->GetRequestedRegion());
+    itk::ImageRegionIterator     <GrayImageT> roiIt(roiMask, roiMask->GetRequestedRegion());
+
+    for(; !orgIt.IsAtEnd() ; ++orgIt, ++scaIt, ++roiIt)
+    {
+        roiIt.Set( (scaIt.Get()+orgIt.Get() == Foreground )? Foreground : Background);
+        // roiIt.Set( (scaIt.Get()+orgIt.Get() == Background )? Foreground : orgIt.Get());
+
+    }
+
+    //VTKViewer::visualize<GrayImageT>(maskOriginal, "Mask org");
+    //VTKViewer::visualize<GrayImageT>(roiMask, "Pleura mask");
+
+
+    return roiMask;
+
+
+
+}
+
+FeatureExtractor::GrayImageP FeatureExtractor::ErodeMask(GrayImageP maskOriginal)
+{
+    using StructuringElementType = itk::FlatStructuringElement<2>;
+    StructuringElementType::RadiusType radius;
+    radius.Fill(ErodeRadius);
+    StructuringElementType structuringElement = StructuringElementType::Ball(radius);
+
+    using BinaryErodeImageFilterType = itk::BinaryErodeImageFilter<GrayImageT, GrayImageT, StructuringElementType>;
+
+    BinaryErodeImageFilterType::Pointer erodeFilter = BinaryErodeImageFilterType::New();
+    erodeFilter->SetInput(maskOriginal);
+    erodeFilter->SetKernel(structuringElement);
+    erodeFilter->SetForegroundValue(0); // Intensity value to erode
+    erodeFilter->SetBackgroundValue(255);   // Replacement value for eroded voxels
+    erodeFilter->Update();
+
+    //VTKViewer::visualize<GrayImageT>(erodeFilter->GetOutput(), "Mask roi");
+    return erodeFilter->GetOutput();
+
+
+}
+
+void FeatureExtractor::CreateFeaturesVector(const std::vector< double>& fractal,
+                                            const std::vector<std::vector<unsigned long>>& lbpHistograms,
+                                            const std::vector<std::vector<double>>& cooccurrence,
+                                            const std::vector<std::vector<double>>& moments,
+                                            FeaturesVectorT& featuresVector)
+{
+
+    featuresVector.clear();
+    featuresVector.reserve(fractal.size());
+
+    //fractal =1
+    unsigned featuresSize = 1 + lbpHistograms[0].size() + cooccurrence[0].size()+moments[0].size();
+    FeaturesT features(featuresSize,1);
+
+    for(unsigned i=0;i< fractal.size(); ++i)
+    {
+        unsigned fIndex=0;
+        //Fractal
+        features(fIndex++,0) = fractal[i];
+        //LBP
+        for(const auto lbp: lbpHistograms[i])
+        {
+            features(fIndex++, 0) = lbp;
+        }
+
+        //coo
+        for(const auto coo: cooccurrence[i])
+        {
+            features(fIndex++,0) = coo;
+        }
+
+        //moments
+        for(const auto mo: moments[i])
+        {
+            features(fIndex++,0) = mo;
+        }
+
+        featuresVector.emplace_back(features);
+
+    }
+
+
+    io::printOK("Creating features vector");
+
+}
+
+void FeatureExtractor::ComputeStatisticalMoments(const GrayImageP& image,
+                                                 const GrayImageP& mask,
+                                                 const CentersT& centers,
+                                                 std::vector<std::vector<double>>& moments)
+{
+
+    //Cast to char because itk moments filter mask works only with this type
+    using ImageChar = itk::Image<unsigned char, 2>;
+    using CastFilterType = itk::CastImageFilter<GrayImageT, ImageChar>;
+
+    auto castFilter = CastFilterType::New();
+    castFilter->SetInput(image);
+    castFilter->Update();
+    auto imageChar = castFilter->GetOutput();
+
+    auto castFilterMask = CastFilterType::New();
+    castFilterMask->SetInput(mask);
+    castFilterMask->Update();
+    auto maskChar = castFilterMask->GetOutput();
+
+    //clear
+    moments.clear();
+    moments.reserve(centers.size());
+
+    using MomentsCalculatorType =  itk::ImageMomentsCalculator<ImageChar>;
+    using MaskType = itk::ImageMaskSpatialObject<2, ImageChar::PixelType>;
+
+    const auto extractNeighborhood = image::ExtractNeighborhoodITK<ImageChar>;
+
+
+    for(auto it = centers.begin(); it != centers.end(); ++it)
+    {
+
+        ImageChar::Pointer tile;
+        ImageChar::Pointer tileMask;
+
+        extractNeighborhood(imageChar, *it, KernelSize, tile);
+        extractNeighborhood(maskChar, *it, KernelSize, tileMask);
+
+        //VTKViewer::visualize<ImageChar>(tileMask, "Mask roi");
+
+        MaskType::Pointer spatialObjectMask = MaskType::New();
+        spatialObjectMask->SetImage(tileMask);
+        spatialObjectMask->Update();
+
+        MomentsCalculatorType::Pointer momentsCalculator = MomentsCalculatorType::New();
+        momentsCalculator->SetImage(tile);
+        momentsCalculator->SetSpatialObjectMask(spatialObjectMask);
+        momentsCalculator->Compute();
+
+        auto firstMomentsITK = momentsCalculator->GetFirstMoments();
+
+        std::vector<double> tileMoments(firstMomentsITK.Size());
+
+        util::VectorToVectorCast(firstMomentsITK, tileMoments, tileMoments.size());
+        //io::PrintVector(tileMoments, tileMoments.size());
+
+        moments.emplace_back(tileMoments);
+
+    }
+
+
+}
+
+
 void FeatureExtractor::Process()
 {
 
@@ -528,7 +883,6 @@ void FeatureExtractor::Process()
     std::vector<double> labelsVector;
 
 
-
     CentersNumberPerImage.clear();
     for(const auto& imageName : ImagesNames)
     {
@@ -537,21 +891,54 @@ void FeatureExtractor::Process()
         image      = io::ReadImage<GrayImageT>(ImagesPath+"/"+imageName);
         boundaries = io::ReadImage<GrayImageT>(BoundariesPath+"/"+imageName);
         labels     = io::ReadImage<RGBImageT >(LabelsPath+"/"+imageName);
+        auto mask  = io::ReadImage<GrayImageT>(MasksPath+"/"+imageName);
 
+
+        //centers
         FindCenters(boundaries, centers);
         FindLabels(labels, centers, labelsVector);
-        //ComputeCooccurrenceMatrixFeatures(image, centers, featuresVector);
-        //ComputeLBPFeatures(image, centers, featuresVector);
-        //ComputeFractalDimension(image, centers, featuresVector);
-        //ComputeShapeFeatures(boundaries, centers, featuresVector);
-        ComputeShapeAndFractalFeatures( image, boundaries, centers, featuresVector);
 
+        //ROI band
+        auto erodedMask = ErodeMask(mask);
+        auto pleuraMask = FindROIMask(mask, erodedMask);
+
+        io::WriteImage<GrayImageT>(pleuraMask,  PleuraMasksPath+"/"+imageName);
+
+
+        //fractal
+        std::vector<double> fractalDimensions;
+        FractalDimensionBoxCounting(boundaries, centers, fractalDimensions);
+
+
+
+        //LBP
+        std::vector<std::vector<unsigned long>> lbpHistograms;
+        ComputeLBPFeatures(image, pleuraMask, centers, lbpHistograms);
+
+
+        //Cooccurrence
+        std::vector<std::vector<double>> cooHistograms;
+        ComputeCooccurrenceMatrixFeatures(image, pleuraMask, centers, cooHistograms);
+
+
+        //moments
+        std::vector<std::vector<double>> moments;
+        ComputeStatisticalMoments(image, pleuraMask, centers, moments);
+
+
+        CreateFeaturesVector(fractalDimensions, lbpHistograms,  cooHistograms, moments, featuresVector);
 
         FeaturesVector.insert(FeaturesVector.end(), std::move_iterator(featuresVector.begin()),  std::move_iterator(featuresVector.end()));
         CentersVector.insert(CentersVector.end(),  std::move_iterator(centers.begin()), std::move_iterator(centers.end()));
         LabelsVector.insert(LabelsVector.end(), std::move_iterator(labelsVector.begin()), std::move_iterator(labelsVector.end()));
 
         CentersNumberPerImage.emplace_back(centers.size());
+
+        /*
+        //
+        //StochastichFractalFeatures(image, roiMask, centers, featuresVector);
+        //
+        */
     }
 
 

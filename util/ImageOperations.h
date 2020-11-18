@@ -84,6 +84,30 @@ inline unsigned ExtractNeighborhoodITK(const typename ImageT::Pointer& inputImag
 
 
 }
+/*
+mask must be a binary image
+0=Background
+*/
+
+template <typename ImageT, typename HistogramT>
+inline void ComputeHistogram(const ImageT &image, const ImageT &mask, HistogramT & histogram)
+{
+
+    for(unsigned r = 0; r < image.nr() ; ++r)
+    {
+        for(unsigned c=0; c < image.nc(); ++c)
+        {
+            if(mask[r][c] != 0)
+            {
+                ++histogram[ static_cast<unsigned>(image[r][c]) ];
+            }
+
+        }
+
+    }
+
+}
+
 
 
 /*
@@ -91,7 +115,7 @@ ImageT is a Dlib image type
 index = col, row
 */
 template <typename ImageT, typename IndexT = std::vector<unsigned long>>
-inline unsigned ExtractNeighborhood(const ImageT& inputImage, const IndexT& centerIndex , const unsigned& neighborhoodSize, ImageT& roi)
+inline unsigned ExtractNeighborhoodDLib(const ImageT& inputImage, const IndexT& centerIndex , const unsigned& neighborhoodSize, ImageT& roi)
 {
 
     if(neighborhoodSize % 2 == 0)

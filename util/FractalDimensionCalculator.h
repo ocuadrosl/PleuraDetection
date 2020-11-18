@@ -26,11 +26,12 @@ public:
 
     void SetUnitTileLenght(unsigned lenght); //in pixels
     void SetResolution(unsigned reolution);
-    void SetScale(float scale);
+    void SetScale(double scale);
     void PrintWarningsOff();
-    void SetBackGround(const uint8_t& backgound);
+    void SetBackGround(const uint16_t& backgound);
+    void SetScaleIterations(unsigned iterations);
 
-    float GetDimension() const;
+    double GetDimension() const;
 
     void Compute();
 
@@ -41,12 +42,12 @@ private:
 
     ImageP InputImage;
 
-    unsigned InitialTileSize{10  }; //Initial tile size
-    unsigned ScaleIterations{3   }; //number of tile reduction (scaling)
-    float    ScaleFactor    {0.5f}; //must be in [0 1];
-    float    Dimension      {0.f }; //result
-    bool     PrintWarnings  {true};
-    uint8_t  Background{0};
+    unsigned InitialTileSize{10}; //Initial tile size
+    unsigned ScaleIterations{3}; //number of tile reduction (scaling)
+    double   ScaleFactor{0.5}; //must be in [0 1];
+    double   Dimension{0}; //result
+    bool     PrintWarnings{true};
+    uint16_t Background{0};
 
     unsigned CountTiles(unsigned unitTileLenght);
 

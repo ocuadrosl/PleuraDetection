@@ -15,7 +15,7 @@ void FractalDimensionCalculator<ImageT>::SetInputImage(const ImageP& InputImage)
 }
 
 template <typename ImageT>
-void FractalDimensionCalculator<ImageT>::SetBackGround(const uint8_t& backgound)
+void FractalDimensionCalculator<ImageT>::SetBackGround(const uint16_t& backgound)
 {
     this->Background = backgound;
 }
@@ -82,13 +82,13 @@ unsigned FractalDimensionCalculator<ImageT>::CountTiles(unsigned tileLength)
 }
 
 template <typename ImageT>
-float FractalDimensionCalculator<ImageT>:: GetDimension() const
+double FractalDimensionCalculator<ImageT>:: GetDimension() const
 {
     return Dimension;
 }
 
 template <typename ImageT>
-void FractalDimensionCalculator<ImageT>::SetScale(float scale)
+void FractalDimensionCalculator<ImageT>::SetScale(double scale)
 {
 
     this->ScaleFactor = scale;
@@ -117,6 +117,14 @@ void FractalDimensionCalculator<ImageT>::PrintWarningsOff()
 }
 
 template <typename ImageT>
+void FractalDimensionCalculator<ImageT>::SetScaleIterations(unsigned iterations)
+{
+    this->ScaleIterations = iterations;
+
+}
+
+
+template <typename ImageT>
 void FractalDimensionCalculator<ImageT>::Compute()
 {
 
@@ -132,20 +140,20 @@ void FractalDimensionCalculator<ImageT>::Compute()
         InitialTileSize = (imgSize[0] > imgSize[1]) ? imgSize[1] : imgSize[0];
         if(PrintWarnings)
         {
-            std::cout<<"Fractal Dimension Warning: Unit tile lenght reduced from "<<tmpLength<<" to "<< InitialTileSize <<std::endl;
+            std::cout<<"Fractal Dimension Warning: Initial tile size reduced from "<<tmpLength<<" to "<< InitialTileSize <<std::endl;
         }
 
     }
 
 
-    std::vector<float> scales; //tile sizes
+    std::vector<double> scales; //tile sizes
 
     //discretize tile sizes by scale factor
     scales.push_back(InitialTileSize);
 
-    for(uint8_t i=1; i <= ScaleIterations-1 ; ++i)
+    for(uint16_t i=1; i <= ScaleIterations-1 ; ++i)
     {
-        float s = *scales.rbegin() * ScaleFactor;
+        double s = *scales.rbegin() * ScaleFactor;
         if(s >= 1.f)
         {
             scales.push_back(std::ceil(s));
@@ -173,8 +181,8 @@ void FractalDimensionCalculator<ImageT>::Compute()
 
 
     //computing fractal dimension for each scale
-    std::vector<float> dimensions;
-    float currentScale = 1.f;
+    std::vector<double> dimensions;
+    double currentScale = 1.f;
     for(auto it = scales.begin()+1; it != scales.end(); ++it)
     {
         auto largeTiles = CountTiles(*(it-1)); //large tiles
