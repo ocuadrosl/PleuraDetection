@@ -15,6 +15,7 @@
 #include "../util/ImageOperations.h"
 #include "../util/FractalDimensionCalculator.h"
 #include "../util/Cast.h"
+#include "../util/Math.h"
 
 
 //itk includes
@@ -40,6 +41,7 @@
 #include <itkFlatStructuringElement.h>
 #include <itkImageMomentsCalculator.h>
 #include <itkImageMaskSpatialObject.h>
+#include <itkLabelToRGBImageFilter.h>
 
 
 //Dlib includes
@@ -77,6 +79,7 @@ public:
     void SetKernelSize(const std::size_t& kernelSize);
     void SetMasksPath(std::string const& masksPath);
     void SetPleuraMasksPath(const std::string& path);
+    void SetErodeRadius(int radius);
     FeatureExtractor();
 
     void Process();
@@ -113,6 +116,7 @@ private:
 
 
     void FindCenters(GrayImageP boundaries, CentersT& centers);
+    void FindCenters2(GrayImageP boundaries, CentersT& centers);
     void FindLabels(const RGBImageP& labelsImage, const CentersT& centersVector, std::vector<double>& labelsVector);
 
     void ComputeLBPFeatures(GrayImageP grayImage, GrayImageP masks, const CentersT& centers, std::vector<std::vector<unsigned long>>& featuresVector);

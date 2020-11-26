@@ -183,23 +183,23 @@ inline type mod(type numer, type denom)
 }
 
 
-template <typename vectorT, unsigned size=3, typename outputT=float>
+template <typename vectorT, unsigned size=3, typename outputT=double>
 inline outputT squaredEuclideanDistance( vectorT vector1, vectorT vector2)
 {
 
-    outputT sum=0;
+    double sum=0;
     for(unsigned i=0 ; i < size; ++i)
     {
-        sum += std::pow(static_cast<outputT>(vector1[i]) - static_cast<outputT>(vector2[i]), 2.0);
+        sum += std::pow(static_cast<double>(vector1[i]) - static_cast<double>(vector2[i]), 2.0);
     }
-    return sum;
+    return static_cast<outputT>(sum);
 
 
 }
 
 
 
-template <typename vectorT, unsigned size=3, typename outputT=float>
+template <typename vectorT, unsigned size=3, typename outputT=double>
 inline outputT euclideanDistance( vectorT vector1, vectorT vector2)
 {
     return std::sqrt(squaredEuclideanDistance<vectorT, size, outputT>(vector1, vector2));

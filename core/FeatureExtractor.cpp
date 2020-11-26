@@ -45,6 +45,119 @@ void FeatureExtractor::SetKernelSize(const std::size_t& kernelSize)
     this->KernelSize = (kernelSize%2==0) ? kernelSize+1 : kernelSize;
 }
 
+
+void FeatureExtractor::FindCenters2(GrayImageP boundaries, CentersT& centers)
+{
+
+/*
+    //tmp image for testing
+    auto tmpImage = GrayImageT::New();
+    tmpImage->SetRegions(boundaries->GetRequestedRegion());
+    tmpImage->Allocate();
+    tmpImage->FillBuffer(210);
+*/
+    centers.clear();
+    using indexT = GrayImageT::IndexType;
+
+
+    const auto& distance =  math::squaredEuclideanDistance<indexT, 2, unsigned>; //avoid squared root computation
+    auto squaredKernelSize   = KernelSize*KernelSize;
+
+    //connected components
+    using ConnectedComponentImageT = itk::ConnectedComponentImageFilter<GrayImageT, GrayImageT>;
+    ConnectedComponentImageT::Pointer connectedComponentsFilter = ConnectedComponentImageT::New();
+    connectedComponentsFilter->SetInput(boundaries);
+    connectedComponentsFilter->FullyConnectedOn();
+    connectedComponentsFilter->SetBackgroundValue(Background);
+    connectedComponentsFilter->Update();
+    auto connectedComponents = connectedComponentsFilter->GetOutput();
+
+
+
+   /* using RGBFilterType = itk::LabelToRGBImageFilter<GrayImageT, RGBImageT>;
+    RGBFilterType::Pointer rgbFilter = RGBFilterType::New();
+    rgbFilter->SetInput(connectedComponents);
+    rgbFilter->Update();
+    VTKViewer::visualize<RGBImageT>(rgbFilter->GetOutput(), "Centers");
+    */
+
+    itk::ImageRegionConstIterator<GrayImageT> compIt(connectedComponents, connectedComponents->GetLargestPossibleRegion());
+
+    std::vector<GrayImageT::PixelType> labelsAux;
+
+
+    unsigned nObjects = connectedComponentsFilter->GetObjectCount();
+    for (compIt.GoToBegin(); !compIt.IsAtEnd(); ++compIt)
+    {
+        if(compIt.Get()==Background)
+        {
+            continue;
+        }
+        if ( std::find( labelsAux.begin(), labelsAux.end(), compIt.Get()) == labelsAux.end())
+        {
+            centers.push_back(compIt.GetIndex());
+            labelsAux.push_back(compIt.Get());
+            //tmpImage->SetPixel(compIt.GetIndex(), 0);
+
+        }
+        if(labelsAux.size() == nObjects)
+        {
+            break;
+        }
+
+    }
+
+    for (compIt.GoToBegin(); !compIt.IsAtEnd(); ++compIt)
+    {
+
+        const auto& label = compIt.Get();
+        //Ignore background pixels
+        if(label == Background)
+        {
+            //tmpImage->SetPixel(compIt.GetIndex(), 255);
+            continue;
+        }
+
+        const auto& index = compIt.GetIndex();
+
+        bool insertflag=true;
+
+        //verify distances
+        auto centIt = centers.begin();
+        auto labelIt = labelsAux.begin();
+        for (;  centIt != centers.end(); ++centIt, ++labelIt)
+        {
+
+            if(label == *labelIt)//same component
+            {
+                if(distance(index, *centIt) < squaredKernelSize)
+                {
+                    insertflag=false;
+                    break;
+                }
+            }
+
+        }
+
+        if(insertflag)
+        {
+            centers.push_back(index);
+            labelsAux.push_back(label);
+            //tmpImage->SetPixel(index, 0);
+        }
+
+
+
+    }
+
+    //VTKViewer::visualize<GrayImageT>(tmpImage, "Centers");
+    io::printOK("Compute Centers");
+
+
+
+}
+
+
 /*
 
 
@@ -862,6 +975,11 @@ void FeatureExtractor::ComputeStatisticalMoments(const GrayImageP& image,
 
 }
 
+void FeatureExtractor::SetErodeRadius(int radius)
+{
+
+    this->ErodeRadius = radius;
+}
 
 void FeatureExtractor::Process()
 {
@@ -895,10 +1013,11 @@ void FeatureExtractor::Process()
 
 
         //centers
-        FindCenters(boundaries, centers);
+        //FindCenters(boundaries, centers);
+        FindCenters2(boundaries, centers);
         FindLabels(labels, centers, labelsVector);
 
-        //ROI band
+        //ROI pleura-> segmentation
         auto erodedMask = ErodeMask(mask);
         auto pleuraMask = FindROIMask(mask, erodedMask);
 
@@ -908,7 +1027,6 @@ void FeatureExtractor::Process()
         //fractal
         std::vector<double> fractalDimensions;
         FractalDimensionBoxCounting(boundaries, centers, fractalDimensions);
-
 
 
         //LBP
@@ -934,11 +1052,7 @@ void FeatureExtractor::Process()
 
         CentersNumberPerImage.emplace_back(centers.size());
 
-        /*
-        //
-        //StochastichFractalFeatures(image, roiMask, centers, featuresVector);
-        //
-        */
+
     }
 
 

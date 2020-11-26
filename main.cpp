@@ -47,30 +47,31 @@ int main()
 
 
 
+   /* unsigned kernelSize = 50;
+    std::string dataset = "train";
     FeatureExtractor featureExtractor;
     featureExtractor.SetBoundariesPath("/home/oscar/data/biopsy/tiff/test/boundaries/");
-    featureExtractor.SetImagesPath("/home/oscar/data/biopsy/tiff/test/clean_images");
+    featureExtractor.SetImagesPath("/home/oscar/data/biopsy/tiff/test/clean_images/"+dataset);
     featureExtractor.SetLabelsPath("/home/oscar/data/biopsy/tiff/test/labels/");
     featureExtractor.SetMasksPath("/home/oscar/data/biopsy/tiff/test/masks/");
-    featureExtractor.SetPleuraMasksPath("/home/oscar/data/biopsy/tiff/test/pleura_masks_150/");
-    featureExtractor.SetKernelSize(150);
+    featureExtractor.SetPleuraMasksPath("/home/oscar/data/biopsy/tiff/test/pleura_masks_20/");
+    featureExtractor.SetKernelSize(kernelSize);
     featureExtractor.Process();
-    featureExtractor.WriteFeaturesCSV("/home/oscar/data/biopsy/tiff/test/csv/fractal_lbp_coo_mome_150.csv", true);
+    featureExtractor.WriteFeaturesCSV("/home/oscar/data/biopsy/tiff/test/csv/"+dataset+"_"+std::to_string(kernelSize)+".csv", true);
+*/
 
 
 
-
-/*
+    unsigned kernelSize = 250;
     ShowPrediction showPredictions;
-    showPredictions.SetPleuraMaskPath("/home/oscar/data/biopsy/tiff/test/pleura_masks_200/");
+    showPredictions.SetPleuraMaskPath("/home/oscar/data/biopsy/tiff/test/pleura_masks_20/");
     showPredictions.SetImagesPath("/home/oscar/data/biopsy/tiff/test/images");
-    showPredictions.SetOutputPath("/home/oscar/data/biopsy/tiff/test/classifications_200");
-    showPredictions.ReadCSV("/home/oscar/data/biopsy/tiff/test/csv/fractal_lbp_coo_mome_200_prediction.csv",
-                          2, 3,4, 71, 72);
-    showPredictions.SetKernelSize(200);
+    showPredictions.SetOutputPath("/home/oscar/data/biopsy/tiff/test/classifications_"+std::to_string(kernelSize));
+    showPredictions.ReadCSV("/home/oscar/data/biopsy/tiff/test/csv/test_"+std::to_string(kernelSize)+"_classification.csv", 2, 3,4, 71, 72);
+    showPredictions.SetKernelSize(kernelSize);
     showPredictions.WritePredictions();
 
-*/
+
 
 
 

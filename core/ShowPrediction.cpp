@@ -151,21 +151,21 @@ void ShowPrediction::WritePredictions()
     const auto extractMaskKernel = image::ExtractNeighborhoodITK<GrayImageT>;
 
 
-    std::string imageName = "";
-    RGBImageP image;
-    GrayImageP pleuraMask;
+    std::string imageName = ImageNames[0];
+    RGBImageP image = io::ReadImage<RGBImageT>(ImagesPath+"/"+ImageNames[0]);
+    GrayImageP pleuraMask = io::ReadImage<GrayImageT>(PleuraMasksPath+"/"+ImageNames[0]);
 
     for(unsigned i=0; i < ImageNames.size(); ++i)
     {
         if(imageName != ImageNames[i])
         {
 
-            if(imageName != "")
-            {
-                //VTKViewer::visualize<RGBImageT>(image);
-                io::WriteImage<RGBImageT>(image, OutputPath+"/"+imageName);
-            }
-            std::cout<<ImageNames[i]<<"\n";
+            //writing current image
+            //VTKViewer::visualize<RGBImageT>(image);
+            io::WriteImage<RGBImageT>(image, OutputPath+"/"+imageName);
+            std::cout<<imageName<<"\n";
+
+            //laad next image
             image = io::ReadImage<RGBImageT>(ImagesPath+"/"+ImageNames[i]);
             pleuraMask = io::ReadImage<GrayImageT>(PleuraMasksPath+"/"+ImageNames[i]);
             imageName = ImageNames[i];
@@ -181,6 +181,11 @@ void ShowPrediction::WritePredictions()
         }
 
     }
+
+    //writing the last image
+    io::WriteImage<RGBImageT>(image, OutputPath+"/"+imageName);
+    std::cout<<imageName<<"\n";
+
 
 
 }
