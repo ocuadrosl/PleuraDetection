@@ -10,35 +10,37 @@
 #include "core/Tester.h"
 #include "core/ShowPrediction.h"
 
+/*
 
+
+
+*/
 
 
 int main()
 {
 
+    std::string dataset = "dataset_1";
 
-    //using GrayImageT = itk::Image<unsigned, 2>;
-    //using FractalFilterType = itk::StochasticFractalDimensionImageFilter < GrayImageT >;
-    //FractalFilterType::Pointer fractalFilter = FractalFilterType::New();
-    //fractalFilter->SetInput()
-    //fractalFilter->
-
-
-    /*
+  /*
+    //input folder images
+    //output folder required "images_cleaned"
     PreProcessor preProcessor;
     preProcessor.SetLThreshold(98);
     preProcessor.SetBThreshold(-1);
     preProcessor.SetAThreshold(1);
-    preProcessor.SetInputDatasetPath("/home/oscar/data/biopsy/tiff/test/images/");
-    preProcessor.SetOutputDatasetPath("/home/oscar/data/biopsy/tiff/test/clean_images/");
+    preProcessor.SetInputDatasetPath("/home/oscar/data/biopsy/tiff/"+dataset+"/images/");
+    preProcessor.SetOutputDatasetPath("/home/oscar/data/biopsy/tiff/"+dataset+"/images_cleaned/");
     preProcessor.Process();
-    */
+*/
 
 /*
+    //input folder image_cleaned
+    //output folders required "boundaries" and "masks"
     BoundariesExtractor boundaryExtractor;
-    boundaryExtractor.SetInputDatasetPath("/home/oscar/data/biopsy/tiff/test/clean_images/test");
-    boundaryExtractor.SetOutputDatasetPath("/home/oscar/data/biopsy/tiff/test/boundaries/");
-    boundaryExtractor.SetOutputMaskPath("/home/oscar/data/biopsy/tiff/test/masks/");
+    boundaryExtractor.SetInputDatasetPath("/home/oscar/data/biopsy/tiff/"+dataset+"/images_cleaned");
+    boundaryExtractor.SetOutputDatasetPath("/home/oscar/data/biopsy/tiff/"+dataset+"/boundaries/");
+    boundaryExtractor.SetOutputMaskPath("/home/oscar/data/biopsy/tiff/"+dataset+"/masks/");
     boundaryExtractor.SetGaussSigma(0.5);
     boundaryExtractor.SetSmallComponentsThreshold(500);
     boundaryExtractor.SetThinBoundariesOff();
@@ -47,21 +49,32 @@ int main()
 
 
 
-   /* unsigned kernelSize = 50;
-    std::string dataset = "train";
+
+    //input folders boundaries
+    //images_cleaned
+    //labels
+    //masks
+    //output folder boundary_masks/<erode radius size>
+    //csv
+    unsigned kernelSize = 50;
+    unsigned erodeRadius = 20;
+    std::string setType = "test";
     FeatureExtractor featureExtractor;
-    featureExtractor.SetBoundariesPath("/home/oscar/data/biopsy/tiff/test/boundaries/");
-    featureExtractor.SetImagesPath("/home/oscar/data/biopsy/tiff/test/clean_images/"+dataset);
-    featureExtractor.SetLabelsPath("/home/oscar/data/biopsy/tiff/test/labels/");
-    featureExtractor.SetMasksPath("/home/oscar/data/biopsy/tiff/test/masks/");
-    featureExtractor.SetPleuraMasksPath("/home/oscar/data/biopsy/tiff/test/pleura_masks_20/");
+    featureExtractor.SetBoundariesPath("/home/oscar/data/biopsy/tiff/"+dataset+"/boundaries/");
+    featureExtractor.SetImagesPath("/home/oscar/data/biopsy/tiff/"+dataset+"/images_cleaned/"+setType);
+    featureExtractor.SetLabelsPath("/home/oscar/data/biopsy/tiff/"+dataset+"/labels/"); //use exiftool -all *.tiff to remove all metadata...
+    featureExtractor.SetMasksPath("/home/oscar/data/biopsy/tiff/"+dataset+"/masks/");
+    featureExtractor.SetPleuraMasksPath("/home/oscar/data/biopsy/tiff/"+dataset+"/boundary_masks/erode_radius_"+std::to_string(erodeRadius)+"/");
     featureExtractor.SetKernelSize(kernelSize);
+    featureExtractor.SetErodeRadius(erodeRadius);
     featureExtractor.Process();
-    featureExtractor.WriteFeaturesCSV("/home/oscar/data/biopsy/tiff/test/csv/"+dataset+"_"+std::to_string(kernelSize)+".csv", true);
-*/
+    featureExtractor.WriteFeaturesCSV("/home/oscar/data/biopsy/tiff/"+dataset+"/csv/kernel_size_"+std::to_string(kernelSize)+"_"+setType+".csv", true);
 
 
 
+/*
+
+    //input folders images,
     unsigned kernelSize = 250;
     ShowPrediction showPredictions;
     showPredictions.SetPleuraMaskPath("/home/oscar/data/biopsy/tiff/test/pleura_masks_20/");
@@ -70,10 +83,7 @@ int main()
     showPredictions.ReadCSV("/home/oscar/data/biopsy/tiff/test/csv/test_"+std::to_string(kernelSize)+"_classification.csv", 2, 3,4, 71, 72);
     showPredictions.SetKernelSize(kernelSize);
     showPredictions.WritePredictions();
-
-
-
-
+*/
 
 
 

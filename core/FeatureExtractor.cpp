@@ -603,7 +603,7 @@ void FeatureExtractor::FindLabels(const RGBImageP& labelsImage,
     labelsVector.reserve(centersVector.size());
 
     itk::RGBPixel<unsigned char> green;
-    green.Set(0, 255, 0);
+    green.Set(4, 255, 0);
 
     for (const auto& center : centersVector )
     {

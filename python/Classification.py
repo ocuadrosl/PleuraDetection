@@ -20,7 +20,7 @@ from sklearn.metrics import confusion_matrix
 from mlxtend.feature_selection import SequentialFeatureSelector as SFS
 
 def SplitData(dataPath, dataFileName):
-    data = pd.read_csv(dataPath+dataFileName+".csv") #data with headers and meta-data
+    data = pd.read_csv(dataPath+dataFileName) #data with headers and meta-data
     data.dropna(inplace=True);
         
     xSet = data.loc[:, 'feature_1':'feature_64'] #fractal + lbp + coo + moments
@@ -41,7 +41,8 @@ def FeatureSelection(xSet, ySet, nFeatures=10):
            verbose=2,
            scoring='accuracy',
            cv=10,
-           n_jobs=-1)
+           n_jobs=-1) #-1
+    
     sffs = sffs.fit(xSet, ySet)
     
     print('\nSequential Forward Floating Selection:')
@@ -79,13 +80,14 @@ def Test(data, xSet, ySet , estimator, targetNames, dataPath, outputFileName, wr
 
 def main():
 
-    dataPath = "/home/oscar/data/biopsy/tiff/test/csv/"
-    trainFileName = "train_250"
-    testFileName  = "test_250"
+    dataPath = "/home/oscar/data/biopsy/tiff/dataset_1/csv/kernel_size_"
+    trainFileName = "50_training.csv"
+    testFileName  = "50_test.csv"
     
     
     data, xSet, ySetTrain = SplitData(dataPath, trainFileName);
     
+       
     sffs = FeatureSelection(xSet, ySetTrain, 5)
     
     xSetTrain = sffs.transform(xSet);
